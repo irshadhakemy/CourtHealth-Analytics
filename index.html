@@ -1,0 +1,1322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NBA Injury Intelligence</title>
+<meta name="description" content="Descriptive analysis of NBA injury episodes, 2010-11 to 2019-20: player archetypes, body regions, play context, workload and prevention.">
+<link rel="stylesheet" href="styles.css">
+<script src="vendor/d3.min.js"></script>
+<script>window.DASH_DATASETS = ["arch_region", "by_archetype", "by_month", "by_region", "by_season", "cases", "clips", "court_meta", "court_points", "court_zones", "evidence", "headline", "injuries", "play_context", "play_types", "players", "prevention", "region_plays", "team_players", "team_regions", "team_seasons", "teams", "weight_band", "workload"];</script>
+<script src="runtime.js"></script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+#dash-root { --dash-gutter: clamp(12px, 3vw, 32px); }
+.ni { position: relative; font-family: var(--font-sans); color: var(--color-fg); max-width: 1280px; margin-inline: auto; }
+.ni h1 { font-family: var(--font-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0 0 var(--cds-gap-xs); }
+.ni h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-xs); }
+.ni h3 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: var(--cds-gap-md) 0 var(--cds-gap-xs); }
+.ni p { margin: 0 0 var(--cds-gap-sm); line-height: 1.5; }
+.ni .muted { color: var(--color-fg-muted); }
+.ni .cap { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
+.ni .lede { max-width: 72ch; color: var(--color-fg-muted); }
+.ni .num { font-variant-numeric: tabular-nums; }
+.ni .ni-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: var(--cds-gap-md); margin: var(--cds-gap-md) 0; }
+.ni .ni-tile { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md) var(--cds-pad-lg); }
+.ni .ni-tile .v { font-family: var(--font-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; display: block; min-height: 1.2em; }
+.ni .ni-tabs { display: flex; gap: var(--cds-gap-xs); overflow-x: auto; border-bottom: 1px solid var(--color-border-line); margin: var(--cds-gap-md) 0 var(--cds-gap-lg); scrollbar-width: thin; }
+.ni .ni-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: var(--cds-pad-sm) var(--cds-pad-md); color: var(--color-fg-muted); font: inherit; font-size: var(--cds-font-size-body); cursor: pointer; white-space: nowrap; }
+.ni .ni-tabs button[aria-selected="true"] { color: var(--color-fg); border-bottom-color: var(--color-fg); }
+.ni .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--cds-gap-md); margin-bottom: var(--cds-gap-md); }
+.ni .card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+.ni .card + .card { margin-top: var(--cds-gap-md); }
+.ni .grid .card + .card { margin-top: 0; }
+.ni .chart { position: relative; min-height: 220px; width: 100%; }
+.ni .chart svg { display: block; overflow: visible; }
+.ni .legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm) var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 var(--cds-gap-sm); }
+.ni .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.ni .ni-tip { position: absolute; z-index: 5; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); max-width: 260px; line-height: 1.45; display: none; }
+.ni .ni-tip .t { color: var(--cds-text-secondary); margin-bottom: 2px; }
+.ni .tick text, .ni .axis-label { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.ni .tick line { stroke: var(--cds-chart-grid); }
+.ni .domain { stroke: var(--cds-chart-axis); }
+.ni .ni-fail { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: inherit; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.ni .ni-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+.ni [data-dash-source-state=empty] { color: transparent; }
+.ni [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.ni .pill { display: inline-block; border: 1px solid var(--color-border-line); border-radius: 999px; padding: 1px 8px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0 4px 4px 0; }
+.ni .pill.hi { border-color: var(--color-bad); color: var(--color-bad); }
+.ni .pill.lo { border-color: var(--color-ok); color: var(--color-ok); }
+.ni .chips { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); margin-bottom: var(--cds-gap-md); }
+.ni .chips button { font: inherit; font-size: var(--cds-font-size-caption); padding: 4px 12px; border-radius: 999px; border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); cursor: pointer; }
+.ni .chips button[aria-pressed="true"] { background: var(--color-fg); color: var(--color-bg); border-color: var(--color-fg); }
+.ni .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: var(--cds-gap-sm); margin: var(--cds-gap-sm) 0; }
+.ni .kv div { border-left: 2px solid var(--color-border-line); padding-left: var(--cds-pad-sm); }
+.ni .kv b { display: block; font-family: var(--font-serif); font-weight: 400; font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; min-height: 1.3em; }
+.ni .kv span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ni ul.steps { margin: 0 0 var(--cds-gap-sm); padding-left: 1.2em; line-height: 1.5; }
+.ni ul.steps li { margin-bottom: 4px; }
+.ni a { color: inherit; text-decoration-color: var(--color-border-line); text-underline-offset: 2px; }
+.ni a:hover { text-decoration-color: currentColor; }
+.ni .cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: var(--cds-gap-md); }
+.ni .ev { border-top: 1px solid var(--color-border-line); padding: var(--cds-pad-sm) 0; font-size: var(--cds-font-size-caption); line-height: 1.5; }
+.ni .ev b { font-weight: var(--cds-font-weight-medium); }
+.ni .ctrls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); margin-bottom: var(--cds-gap-sm); }
+.ni .ctrls select, .ni .ctrls input { font: inherit; font-size: var(--cds-font-size-caption); padding: 6px 8px; border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); background: var(--color-bg); color: var(--color-fg); min-width: 0; }
+.ni .ctrls input { flex: 1 1 12rem; }
+.ni .tbl-wrap { max-height: 560px; overflow: auto; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
+.ni table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.ni th { position: sticky; top: 0; background: var(--color-panel); text-align: left; font-weight: var(--cds-font-weight-medium); padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; z-index: 1; }
+.ni td { padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+.ni td.r, .ni th.r { text-align: right; }
+.ni tbody tr { cursor: pointer; }
+.ni tbody tr:hover { background: color-mix(in srgb, var(--color-fg) 5%, transparent); }
+.ni tbody tr[aria-selected="true"] { background: color-mix(in srgb, var(--color-fg) 9%, transparent); }
+.ni .explorer { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--cds-gap-md); align-items: start; }
+@media (max-width: 900px) { .ni .explorer { grid-template-columns: 1fr; } .ni .hide-n { display: none; } }
+.ni .detail { position: sticky; top: 8px; }
+.ni .note { border-left: 3px solid var(--color-border-line); padding-left: var(--cds-pad-sm); }
+.ni .heat-wrap { overflow-x: auto; }
+.ni .btn-link { display: inline-flex; align-items: center; gap: 6px; font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 4px 12px; text-decoration: none; margin: 0 6px 6px 0; }
+.ni .dash-skeleton { min-height: 1em; }
+.ni button.sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.ni th[aria-sort="descending"] button.sort::after { content: " ↓"; }
+.ni th[aria-sort="ascending"] button.sort::after { content: " ↑"; }
+</style>
+
+<div class="ni" id="ni">
+  <header id="top">
+    <h1>NBA Injury Intelligence</h1>
+    <p class="lede" id="takeaway">Across <span data-source="headline" data-field="new_injuries" data-row="0" class="num dash-skeleton">—</span> new injuries to <span data-source="headline" data-field="players" data-row="0" class="num dash-skeleton">—</span> players (<span data-source="headline" data-field="seasons" data-row="0" class="dash-skeleton">—</span>), knees and ankles dominate. Risk differs by player archetype, and a body region injured once is far more likely to be injured again within a year. Use the playbook to act on it.</p>
+    <div class="ni-tiles">
+      <div class="ni-tile"><span class="v dash-skeleton" data-source="headline" data-field="new_injuries" data-row="0">—</span><span class="cap">New injury episodes</span></div>
+      <div class="ni-tile"><span class="v dash-skeleton" data-source="headline" data-field="severe" data-row="0">—</span><span class="cap">Severe (out 4+ weeks)</span></div>
+      <div class="ni-tile"><span class="v dash-skeleton" data-source="headline" data-field="games_missed_total" data-row="0">—</span><span class="cap">Games missed</span></div>
+      <div class="ni-tile"><span class="v dash-skeleton" data-source="headline" data-field="median_games_missed" data-row="0">—</span><span class="cap">Median games missed per injury</span></div>
+      <div class="ni-tile"><span class="v dash-skeleton" data-source="headline" data-field="players" data-row="0">—</span><span class="cap">Players injured</span></div>
+    </div>
+  </header>
+
+  <nav class="ni-tabs" role="tablist" id="tabs">
+    <button role="tab" id="tab-overview" data-page="overview">Overview</button>
+    <button role="tab" id="tab-archetypes" data-page="archetypes">Player archetypes</button>
+    <button role="tab" id="tab-teams" data-page="teams">Teams &amp; players</button>
+    <button role="tab" id="tab-court" data-page="court">Court &amp; play context</button>
+    <button role="tab" id="tab-load" data-page="load">Timing &amp; workload</button>
+    <button role="tab" id="tab-recur" data-page="recur">Re-injury risk</button>
+    <button role="tab" id="tab-cases" data-page="cases">Case studies</button>
+    <button role="tab" id="tab-playbook" data-page="playbook">Prevention playbook</button>
+    <button role="tab" id="tab-explorer" data-page="explorer">Injury explorer</button>
+    <button role="tab" id="tab-method" data-page="method">Method &amp; limits</button>
+  </nav>
+
+  <section class="pg" id="overview" hidden></section>
+  <section class="pg" id="archetypes" hidden></section>
+  <section class="pg" id="teams" hidden></section>
+  <section class="pg" id="court" hidden></section>
+  <section class="pg" id="load" hidden></section>
+  <section class="pg" id="recur" hidden></section>
+  <section class="pg" id="cases" hidden></section>
+  <section class="pg" id="playbook" hidden></section>
+  <section class="pg" id="explorer" hidden></section>
+  <section class="pg" id="method" hidden></section>
+  <div class="ni-tip" id="tip"></div>
+</div>
+
+<template id="t-overview">
+  <div class="grid">
+    <div class="card" id="card-region">
+      <h2>Where players get hurt</h2>
+      <p class="cap">New injury episodes by body region, split by how long the player was out. Unknown means no return date was logged.</p>
+      <div class="legend" id="lg-region"></div>
+      <div class="chart" id="ch-region" data-source="by_region" style="min-height:420px"></div>
+    </div>
+    <div class="card" id="card-games">
+      <h2>What costs the most games</h2>
+      <p class="cap">Total games missed by body region. Knees cost the most games overall; hand and wrist injuries keep players out longest per injury.</p>
+      <div class="chart" id="ch-games" data-source="by_region" style="min-height:420px"></div>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="card" id="card-season">
+      <h2>Severe injuries per season</h2>
+      <p class="cap">Episodes keeping a player out 4+ weeks. 2011-12 was a 66-game lockout season, and 2019-20 was cut short. Minor-injury logging became more detailed from 2014-15, so only severe counts are compared across years.</p>
+      <div class="chart" id="ch-season" data-source="by_season"></div>
+    </div>
+    <div class="card" id="card-month">
+      <h2>When in the season</h2>
+      <p class="cap">New injuries by calendar month (regular season and playoffs). May and June only include playoff teams.</p>
+      <div class="chart" id="ch-month" data-source="by_month"></div>
+    </div>
+  </div>
+</template>
+
+<template id="t-archetypes">
+  <div class="card" id="card-arch-table">
+    <h2>The eight archetypes</h2>
+    <p class="cap">Built by clustering every player-season with 400+ minutes (2009-10 to 2019-20) on height, body mass, and per-36-minute style: scoring, assists, rebounds, blocks, steals, turnovers, three-point rate, and free-throw rate. Rates are per 10,000 minutes played, so stars who play more aren't over-counted.</p>
+    <div class="tbl-wrap" style="max-height:none">
+      <table id="tbl-arch" data-source="by_archetype" data-row-key="archetype">
+        <thead><tr>
+          <th data-field="archetype">Archetype</th>
+          <th data-field="description" class="hide-n">Profile</th>
+          <th data-source="arch_units" data-field="height_ft_in" class="r">Height (ft-in)</th>
+          <th data-field="height_cm" class="r hide-n">Height (cm)</th>
+          <th data-source="arch_units" data-field="weight_lb" class="r">Weight (lb)</th>
+          <th data-field="weight_kg" class="r hide-n">Weight (kg)</th>
+          <th data-field="player_seasons" class="r hide-n">Player-seasons</th>
+          <th data-field="per_10k_min" class="r">Injuries / 10k min</th>
+          <th data-field="severe_per_10k_min" class="r">Severe / 10k min</th>
+          <th data-field="games_missed_per_1k_min" class="r hide-n">Games missed / 1k min</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="grid" style="margin-top:var(--cds-gap-md)">
+    <div class="card" id="card-arch-rate">
+      <h2>Injury rate by archetype</h2>
+      <p class="cap">All new injuries per 10,000 minutes, with a 95% interval. The dashed line is the league rate across these archetypes.</p>
+      <div class="chart" id="ch-arch-rate" data-source="by_archetype league_rate" style="min-height:300px"></div>
+    </div>
+    <div class="card" id="card-arch-sev">
+      <h2>Severe injury rate by archetype</h2>
+      <p class="cap">Injuries keeping a player out 4+ weeks, per 10,000 minutes, with a 95% interval. High-usage forwards/bigs and slashing playmakers stand out.</p>
+      <div class="chart" id="ch-arch-sev" data-source="by_archetype league_rate" style="min-height:300px"></div>
+    </div>
+  </div>
+  <div class="card" id="card-heat">
+    <h2>Which archetype gets which injury</h2>
+    <p class="cap">Each cell is that archetype's injury rate for a body region relative to the league rate for that region (1.0 = league average). Outlined cells with ▲ or ▼ have a 95% interval that excludes 1.0. Small cells are noisy, so hover to see the count.</p>
+    <div class="legend" id="lg-heat"></div>
+    <div class="heat-wrap"><div class="chart" id="ch-heat" data-source="arch_region" style="min-height:560px"></div></div>
+  </div>
+  <div class="card" id="card-weight">
+    <h2>Body weight and lower-body injuries</h2>
+    <p class="cap">Injuries per 10,000 minutes by weight band (pounds, with kilograms in the tooltip), using the player's listed weight. Knee injuries rise with weight up to about 115 kg. The heaviest band has the highest Achilles and calf rates.</p>
+    <div class="chart" id="ch-weight" data-source="weight_band" style="min-height:240px"></div>
+  </div>
+</template>
+
+<template id="t-teams">
+  <p class="lede">How often each franchise's players get hurt, and which players appear most often in the injury log. Teams report injuries with different levels of detail, so a high count can partly reflect disclosure habits rather than worse luck or care.</p>
+  <div class="grid">
+    <div class="card" id="card-team-rate">
+      <h2>Injuries per season, by team</h2>
+      <p class="cap">New injury episodes per season (2010-11 to 2019-20) with a 95% interval. The dashed line is the league average. Click a team to see its most-injured players and body-region mix.</p>
+      <div class="chart" id="ch-team-rate" data-source="teams" style="min-height:760px"></div>
+    </div>
+    <div class="card" id="card-team-detail">
+      <h2 id="team-title">Pick a team</h2>
+      <p class="cap" id="team-sub">Click a bar on the left.</p>
+      <div class="kv" id="team-kv"></div>
+      <h3>Most-injured players</h3>
+      <div class="chart" id="ch-team-players" data-source="team_players" style="min-height:200px"></div>
+      <h3>Body-region mix vs league</h3>
+      <div class="legend" id="lg-team-reg"></div>
+      <div class="chart" id="ch-team-regions" data-source="team_regions" style="min-height:260px"></div>
+      <div id="team-actions"></div>
+    </div>
+  </div>
+  <div class="card" id="card-team-season">
+    <h2>Team injuries by season</h2>
+    <p class="cap">New injury episodes for each team and season, so darker cells mean more injuries. Compare teams within a column, since logging became more detailed from 2014-15.</p>
+    <div class="heat-wrap"><div class="chart" id="ch-team-season" data-source="team_seasons" style="min-height:820px"></div></div>
+  </div>
+  <div class="card" id="card-players">
+    <h2>Player injury frequency</h2>
+    <p class="cap">Every player in the injury log, 2010-11 to 2019-20. Minutes and games come from box scores. The rate per 1,000 minutes is shown only for players with 2,000+ minutes. Click a column to sort, or a row to open that player's injuries in the explorer.</p>
+    <div class="ctrls"><input type="search" id="pl-q" placeholder="Search players or teams" aria-label="Search players"></div>
+    <div class="tbl-wrap">
+      <table id="tbl-players" data-source="players" data-row-key="pkey">
+        <thead><tr>
+          <th data-field="player"><button class="sort" data-k="player">Player</button></th>
+          <th data-field="team" class="hide-n">Last team</th>
+          <th data-field="archetype" class="hide-n">Archetype</th>
+          <th data-source="player_units" data-field="height_ft_in" class="r hide-n">Height (ft-in)</th>
+          <th data-field="height_cm" class="r hide-n">(cm)</th>
+          <th data-source="player_units" data-field="weight_lb" class="r hide-n">Weight (lb)</th>
+          <th data-field="weight_kg" class="r hide-n">(kg)</th>
+          <th data-field="injuries" class="r"><button class="sort" data-k="injuries">Injuries</button></th>
+          <th data-field="severe" class="r"><button class="sort" data-k="severe">Severe</button></th>
+          <th data-field="games_missed" class="r"><button class="sort" data-k="games_missed">Games missed</button></th>
+          <th data-field="per_1k_min" class="r"><button class="sort" data-k="per_1k_min">Per 1k min</button></th>
+          <th data-field="top_region" class="hide-n">Most-injured region</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<template id="t-court">
+  <p class="lede">Where on the floor, and in what kind of play, players were last involved before leaving a game they got hurt in. This uses NBA play-by-play for regular-season games where the injured player left early (under 60% of his normal minutes). The ratio compares each play type with how often it happens across every player action in those seasons.</p>
+  <div class="ni-tiles">
+    <div class="ni-tile"><span class="v dash-skeleton" data-source="court_meta" data-field="located" data-row="0">—</span><span class="cap">In-game injuries located in the play-by-play</span></div>
+    <div class="ni-tile"><span class="v dash-skeleton" data-source="play_context" data-field="injury_share" data-where="context=Transition">—</span><span class="cap">Happened in transition (fast break / scramble)</span></div>
+    <div class="ni-tile"><span class="v dash-skeleton" data-source="play_context" data-field="baseline_share" data-where="context=Transition">—</span><span class="cap">Share of all actions in transition</span></div>
+    <div class="ni-tile"><span class="v dash-skeleton" data-source="court_meta" data-field="with_coordinates" data-row="0">—</span><span class="cap">Last play was a shot, so its spot on the floor is known</span></div>
+  </div>
+  <div class="grid">
+    <div class="card" id="card-court-map">
+      <h2>Where the shot was taken</h2>
+      <p class="cap">Each dot is an injury whose last play was a shot, colored by the body region injured. Hover for the player and the play.</p>
+      <div class="legend" id="lg-court"></div>
+      <div class="chart" id="ch-court" data-source="court_points" style="min-height:420px"></div>
+    </div>
+    <div class="card" id="card-zones">
+      <h2>Court zones vs normal shot mix</h2>
+      <p class="cap">Share of injury shots per zone (colored) against the share of all shots there (gray).</p>
+      <div class="legend" id="lg-zones"></div>
+      <div class="chart" id="ch-zones" data-source="court_zones" style="min-height:300px"></div>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="card" id="card-plays">
+      <h2>Which plays come right before injuries</h2>
+      <p class="cap">Play type of the last action, relative to how often that play happens (×1 = normal). Lighter bars rest on fewer than 20 injuries and are noisy.</p>
+      <div class="chart" id="ch-plays" data-source="play_types" style="min-height:440px"></div>
+    </div>
+    <div class="card" id="card-trans">
+      <h2>Transition vs half-court, by play</h2>
+      <p class="cap">Share of each play type that came within 8 seconds of a live-ball change of possession (fast breaks, chase-downs, scrambles). Gray is normal, colored is at injury. Only play types with 10+ injuries are shown.</p>
+      <div class="legend" id="lg-trans"></div>
+      <div class="chart" id="ch-trans" data-source="play_types" style="min-height:360px"></div>
+    </div>
+  </div>
+  <div class="card" id="card-region-plays">
+    <h2>What play each injury came from</h2>
+    <p class="cap">Play mix of the last action for one body region at a time.</p>
+    <div class="chips" id="rp-chips" data-source="region_plays"></div>
+    <div class="chart" id="ch-region-plays" data-source="region_plays" style="min-height:300px"></div>
+  </div>
+  <div class="card" id="card-court-meaning">
+    <h2>Why this matters for staff</h2>
+    <ul class="steps">
+      <li><b>Defensive contact is the biggest flag.</b> A foul committed is the most common last play and is well above its normal rate, especially for head, shoulder and hip injuries. Collisions while contesting, taking charges and fighting through screens deserve contact-tolerance and safe-falling work.</li>
+      <li><b>Losing the ball often goes with getting hurt.</b> Turnovers are over-represented: players slip, get tangled, or land on a foot and cough the ball up. Footing, shoe and floor checks and reactive balance training target this.</li>
+      <li><b>Transition is riskier than the half-court.</b> Fast breaks, chase-downs and scrambles produce a larger share of injury plays than of normal play. Blocks and dunks right before an injury lean toward transition, though those samples are small. Teams that push pace should weight deceleration and landing-at-speed drills.</li>
+      <li><b>Explosive finishes are dramatic but rare.</b> Dunks and alley-oops seldom appear as the last play, and with so few cases they can't be called higher-risk overall. The highlight-reel injuries are memorable, not typical.</li>
+      <li><b>Rebounding traffic drives lower-leg injuries.</b> Rebounds are among the top last plays for ankle, foot and calf injuries, the classic landing-on-a-foot pattern. Boxing-out technique and bracing for players with prior sprains are the levers.</li>
+      <li><b>Slow, half-court offense isn't protective by itself.</b> Most injuries still happen in half-court play simply because most basketball is half-court. What matters is the type of action, not the tempo alone.</li>
+    </ul>
+    <p class="cap note">Limits: play-by-play records an action but not the exact injury moment, so the last action is a close proxy, best confirmed on the replay. Only shots carry a court location. Injuries late in games, in practice, or without an early exit aren't included.</p>
+  </div>
+</template>
+
+<template id="t-load">
+  <p class="lede">Each chart compares the games where an injury happened to all games played by rotation players (15+ minutes per game). A ratio above 1 means injuries show up there more often than playing time alone would predict.</p>
+  <div class="grid">
+    <div class="card" id="card-prior">
+      <h2>Load over the previous five games</h2>
+      <p class="cap">Average minutes in the five games before, relative to the player's own season average. Injuries are a little over-represented after above-normal stretches and clearly under-represented after light ones.</p>
+      <div class="chart" id="ch-prior" data-source="workload"></div>
+    </div>
+    <div class="card" id="card-rest">
+      <h2>Rest before the game</h2>
+      <p class="cap">Days off before the game in which the injury happened. Back-to-backs do not show extra risk in this data, consistent with published NBA schedule research.</p>
+      <div class="chart" id="ch-rest" data-source="workload"></div>
+    </div>
+  </div>
+  <div class="card" id="card-load-ev">
+    <h2>What the research adds</h2>
+    <p class="cap">Read these alongside the charts: load effects are easy to understate because only healthy players keep logging heavy minutes.</p>
+    <div id="ev-load" data-source="evidence"></div>
+  </div>
+</template>
+
+<template id="t-recur">
+  <div class="card" id="card-recur">
+    <h2>How likely is it to happen again?</h2>
+    <p class="cap">Gray dot: share of rotation player-seasons with an injury to that body region (the baseline). Colored dot: share of players who, after an injury there, had another injury logged to the same region 15–365 days later. The multiplier compares the two. Read it as "if nothing changes" risk: it includes re-aggravations and lingering problems, not only brand-new tears.</p>
+    <div class="legend" id="lg-recur"></div>
+    <div class="chart" id="ch-recur" data-source="by_region" style="min-height:460px"></div>
+  </div>
+  <div class="card" id="card-recur-arch">
+    <h2>Re-injury within a year, by archetype</h2>
+    <p class="cap">Share of injuries followed by another injury to the same body region within 15–365 days.</p>
+    <div class="chart" id="ch-recur-arch" data-source="by_archetype" style="min-height:280px"></div>
+  </div>
+</template>
+
+<template id="t-cases">
+  <p class="lede">Marquee injuries with the mechanism described from game reporting, plus the box-score workload going into that game. Where NBA.com has a play-level clip (2014-15 onward), the ▶ buttons open it on NBA.com. The search button is an unverified fallback. The league licenses its footage, so nothing is hosted here.</p>
+  <div class="chips" id="case-chips"></div>
+  <div class="cases" id="case-list" data-source="cases"></div>
+</template>
+
+<template id="t-playbook">
+  <p class="lede">For each high-impact body region: how it usually happens, who in this data is most exposed, the re-injury risk, and evidence-based prevention steps for performance and medical staff. This is educational guidance, not medical advice.</p>
+  <div class="chips" id="pb-chips" data-source="prevention"></div>
+  <div id="pb-body"></div>
+</template>
+
+<template id="t-explorer">
+  <p class="lede">Every new injury in the dataset. Pick one to get the full read-out: archetype, game context, likely mechanism, re-injury risk, and what staff can do.</p>
+  <div class="explorer">
+    <div class="card" id="card-explorer">
+      <div class="ctrls">
+        <input type="search" id="ex-q" placeholder="Search player, team or injury" aria-label="Search">
+        <select id="ex-region" aria-label="Body region"></select>
+        <select id="ex-arch" aria-label="Archetype"></select>
+        <select id="ex-sev" aria-label="Severity"></select>
+        <select id="ex-team" aria-label="Team"></select>
+      </div>
+      <p class="cap" id="ex-count"></p>
+      <div class="tbl-wrap">
+        <table id="tbl-inj" data-source="injuries" data-row-key="id">
+          <thead><tr>
+            <th data-field="start">Date</th>
+            <th data-field="player">Player</th>
+            <th data-field="desc">Injury</th>
+            <th data-field="severity" class="hide-n">Severity</th>
+            <th data-field="games_missed" class="r">Games missed</th>
+            <th data-field="team_name" class="hide-n">Team</th>
+            <th data-field="archetype" class="hide-n">Archetype</th>
+          </tr></thead><tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card detail" id="card-detail"><div id="detail"><p class="cap">Select an injury to analyze it.</p></div></div>
+  </div>
+</template>
+
+<template id="t-method">
+  <div class="grid">
+    <div class="card" id="card-data">
+      <h2>Where the data comes from</h2>
+      <p><b>Injuries:</b> the Pro Sports Transactions injury log (players placed on and returned from injury lists, day-to-day and did-not-play notes), <span data-source="headline" data-field="seasons" data-row="0">—</span>. Consecutive entries for a player are merged into one episode, from first absence to logged return. Rest, illness, personal and suspension entries are excluded, as are episodes that are only a continuation of an earlier surgery.</p>
+      <p><b>Archetypes and body size:</b> season stats with listed height and weight for every NBA player-season. Players are assigned their archetype from the injury season, or else the nearest season, or else their career profile.</p>
+      <p><b>Game context:</b> ESPN box scores. Each injury is matched to the player's last game played in the four days before the logged date (<span data-source="headline" data-field="game_matched" data-row="0">—</span> matched), giving minutes in that game, rest days and recent load.</p>
+      <p><b>Court and play context:</b> NBA play-by-play (via the shufinskiy/nba_data archive), regular season only. For games where the injured player left early, his last recorded action before exiting is classified by play type, court zone (shots only) and whether it came within 8 seconds of a live-ball change of possession (transition).</p>
+      <p><b>Video links:</b> for located injuries from 2014-15 onward, the play text, quarter and clock were matched exactly to NBA.com's play-by-play, and each link opens NBA.com's own clip page for that game and play. Only the game and play numbers are stored here.</p>
+      <p><b>Teams:</b> each injury is credited to the franchise listed in the injury log, with relocations and renames merged (New Orleans and Charlotte Hornets history split correctly).</p>
+      <p><b>Units:</b> heights and weights are shown in feet/inches and pounds first, then centimeters and kilograms.</p>
+      <p><b>Mechanisms and prevention:</b> published NBA video analyses and prevention trials, plus game reporting for the case studies. Each claim links its source.</p>
+    </div>
+    <div class="card" id="card-limits">
+      <h2>Limits to keep in mind</h2>
+      <ul class="steps">
+        <li>Public injury logs record what teams disclose, often vaguely ("sore knee"). Per-injury mechanism (flat-footed landing, pivot, contact) isn't in the log. It comes from video research and the case studies.</li>
+        <li>Logging got more detailed around 2014-15, so all-injury counts rise for reasons unrelated to injury risk.</li>
+        <li>Associations are not causes. Archetype differences can reflect role, minutes, and age as well as movement style.</li>
+        <li>The core dataset ends with 2019-20. The 2024-25 case studies are outside it and illustrate patterns rather than feeding the statistics.</li>
+        <li>Video links cover 645 of the 939 located in-game injuries. NBA.com has no play-level clips before 2014-15, so the other 294 have none. About 50 more had a last play with no clip (a free throw or substitution), so the link points to the closest earlier play. A clip shows the play before the player left, not necessarily the instant of injury.</li>
+        <li>Archetype covers <span data-source="headline" data-field="archetype_coverage" data-row="0">—</span> of injuries. The rest are players with too few minutes to profile.</li>
+        <li>A team deployment would replace these public sources with tracking, wearable, and medical-record data. That enables player-level risk prediction, which public data can't support.</li>
+      </ul>
+    </div>
+  </div>
+</template>
+
+<script>
+(() => {
+  const root = document.getElementById('ni');
+  const tip = document.getElementById('tip');
+  const f0 = d3.format(','), f1 = d3.format('.1f'), f2 = d3.format('.2f'), pct = d3.format('.0%'), pct1 = d3.format('.1%');
+  const ARCH = ['Slashing playmaker', 'Slim scoring guard', 'Scoring wing', 'Defensive wing', 'Spot-up shooter', 'High-usage forward/big', 'Post big', 'Rim-running big'];
+  const W = {};
+  window.NI = W;
+
+  // ---------- helpers
+  W.get = (id) => { const d = dash.data(id); return d.status === 'ok' ? d.data : null; };
+  // NBA.com clip links: the page is keyed by game id + play number, so only pointers are stored here
+  W.clipUrl = (gid, n, title) => {
+    const y = +gid.slice(3, 5);
+    return 'https://www.nba.com/stats/events?GameEventID=' + n + '&GameID=' + gid + '&Season=20' + String(y).padStart(2, '0') + '-' + String((y + 1) % 100).padStart(2, '0') + '&flag=1&title=' + encodeURIComponent(title);
+  };
+  W.clipFor = (id) => {
+    const rows = W.get('clips'); if (!rows) return undefined; // undefined = still loading
+    if (W._clipRows !== rows) { W._clipRows = rows; W._clipIdx = new Map(rows.map((r) => [r.id, r])); }
+    return W._clipIdx.get(id) || null;
+  };
+  // adds NBA.com clip buttons to `parent`; returns 'ok', 'none' (no clip for this row) or 'loading'
+  W.clipLinks = (parent, id) => {
+    const c = W.clipFor(id);
+    if (c === undefined) return 'loading';
+    if (!c) return 'none';
+    const list = [[c.n1, c.l1 || (c.m ? 'Last play before exit' : 'Closest earlier play with video')]];
+    if (c.n2) list.push([c.n2, c.l2 || 'The play before']);
+    for (const [n, label] of list) parent.appendChild(W.mk('a', { class: 'btn-link', href: W.clipUrl(c.gid, n, label), target: '_blank', rel: 'noopener' }, '▶ ' + label));
+    return 'ok';
+  };
+  W.state = (el, ids) => {
+    // returns rows map or null; draws failure line where a source failed
+    const out = {};
+    for (const id of ids) {
+      const d = dash.data(id);
+      if (d.status === 'ok') { out[id] = d.data; continue; }
+      el.replaceChildren();
+      if (d.status === 'error' || d.status === 'connect' || d.status === 'declined' || d.status === 'missing') {
+        const s = document.createElement('div'); s.className = 'ni-fail'; s.textContent = 'Failed to load'; el.appendChild(s);
+        el.classList.remove('dash-skeleton');
+      } else el.classList.add('dash-skeleton');
+      return null;
+    }
+    el.classList.remove('dash-skeleton');
+    return out;
+  };
+  W.tipShow = (event, html) => {
+    tip.replaceChildren();
+    for (const [cls, text] of html) { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = text; tip.appendChild(d); }
+    tip.style.display = 'block';
+    const [x, y] = d3.pointer(event, root);
+    const tw = tip.offsetWidth, th = tip.offsetHeight, rw = root.clientWidth;
+    tip.style.left = Math.max(0, Math.min(rw - tw, x + 12)) + 'px';
+    tip.style.top = Math.max(0, y - th - 10) + 'px';
+  };
+  W.tipHide = () => { tip.style.display = 'none'; };
+  W.color = (token) => { const p = document.createElement('span'); p.style.color = token; root.appendChild(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+  W.axisClean = (g) => g.attr('font-size', null).attr('font-family', null);
+  W.textWidth = (svg, labels) => {
+    const t = svg.append('g').attr('class', 'tick');
+    let m = 0; for (const l of labels) { const n = t.append('text').text(l); m = Math.max(m, n.node().getComputedTextLength()); }
+    t.remove(); return m;
+  };
+  W.legend = (el, items) => {
+    el.replaceChildren();
+    for (const [color, label, op] of items) { const s = document.createElement('span'); const i = document.createElement('i'); i.style.background = color; if (op != null) i.style.opacity = op; s.append(i, label); el.appendChild(s); }
+  };
+  W.text = (el, v) => { el.textContent = v; };
+  W.mk = (tag, attrs = {}, text) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
+
+  // imperial-first unit helpers (fixed conversions)
+  W.ftin = (cm) => { if (cm == null || isNaN(cm)) return '—'; const t = Math.round(cm / 2.54); return `${Math.floor(t / 12)}′ ${t % 12}″`; };
+  W.lb = (kg) => (kg == null || isNaN(kg)) ? '—' : d3.format(',')(Math.round(kg * 2.20462));
+  W.hw = (cm, kg) => `${W.ftin(cm)}, ${W.lb(kg)} lb (${d3.format('.0f')(cm)} cm, ${d3.format('.0f')(kg)} kg)`;
+  W.bandLb = { '<95 kg': '<209', '95-105 kg': '209–231', '105-115 kg': '231–254', '115+ kg': '254+' };
+  W.bandFull = { '<95 kg': 'under 209 lb (95 kg)', '95-105 kg': '209–231 lb (95–105 kg)', '105-115 kg': '231–254 lb (105–115 kg)', '115+ kg': '254+ lb (115+ kg)' };
+  dash.calc('arch_units', {
+    inputs: ['by_archetype'], title: 'Archetype size in feet/inches and pounds',
+    description: 'Average height and weight converted from cm and kg (1 in = 2.54 cm, 1 kg = 2.20462 lb).',
+    fn: (by_archetype) => by_archetype.map((r) => { const t = Math.round(r.height_cm / 2.54); return { archetype: r.archetype, height_ft_in: `${Math.floor(t / 12)}′ ${t % 12}″`, weight_lb: Math.round(r.weight_kg * 2.20462) }; }),
+  });
+  dash.calc('player_units', {
+    inputs: ['players'], title: 'Player size in feet/inches and pounds',
+    description: 'Listed height and weight converted from cm and kg (1 in = 2.54 cm, 1 kg = 2.20462 lb).',
+    fn: (players) => players.map((r) => { if (r.height_cm == null) return { pkey: r.pkey, height_ft_in: null, weight_lb: null }; const t = Math.round(r.height_cm / 2.54); return { pkey: r.pkey, height_ft_in: `${Math.floor(t / 12)}′ ${t % 12}″`, weight_lb: r.weight_kg == null ? null : Math.round(r.weight_kg * 2.20462) }; }),
+  });
+
+  // league rates (a calculation, so readers can check it)
+  dash.calc('league_rate', {
+    inputs: ['by_archetype'],
+    title: 'League injury rate',
+    description: 'All archetypes pooled: injuries and severe injuries per 10,000 minutes.',
+    fn: (by_archetype) => {
+      const inj = d3.sum(by_archetype, (r) => +r.injuries), sev = d3.sum(by_archetype, (r) => +r.severe), min = d3.sum(by_archetype, (r) => +r.minutes);
+      return [{ per_10k_min: inj / min * 1e4, severe_per_10k_min: sev / min * 1e4 }];
+    },
+  });
+
+  // ---------- header
+  function header() {
+    const h = dash.data('headline');
+    root.querySelectorAll('[data-source="headline"]').forEach((el) => {
+      if (h.status !== 'ok') { if (h.status === 'error') { el.textContent = '—'; el.classList.remove('dash-skeleton'); } return; }
+      const r = h.data[0], f = el.dataset.field; const v = r[f];
+      el.classList.remove('dash-skeleton');
+      if (f === 'archetype_coverage' || f === 'game_matched') el.textContent = pct(v);
+      else if (f === 'seasons') el.textContent = v;
+      else if (f === 'median_games_missed') el.textContent = f1(v);
+      else el.textContent = el.classList.contains('v') && v >= 10000 ? new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(v) : f0(v);
+    });
+  }
+
+  // ---------- tabs
+  const PAGES = ['overview', 'archetypes', 'teams', 'court', 'load', 'recur', 'cases', 'playbook', 'explorer', 'method'];
+  let current = null;
+  function show(page) {
+    if (!PAGES.includes(page)) page = 'overview';
+    current = page;
+    for (const p of PAGES) {
+      const sec = document.getElementById(p);
+      sec.hidden = p !== page;
+      document.getElementById('tab-' + p).setAttribute('aria-selected', p === page ? 'true' : 'false');
+    }
+    const sec = document.getElementById(page);
+    if (!sec.dataset.ready) { sec.appendChild(document.getElementById('t-' + page).content.cloneNode(true)); sec.dataset.ready = '1'; W.init[page] && W.init[page](); }
+    dash.setLink(page);
+    render();
+  }
+  W.init = {};
+  W.showPage = (p) => show(p);
+  W.draw = {};
+  document.getElementById('tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-page]'); if (b) show(b.dataset.page); });
+  function render() { header(); if (current && W.draw[current]) W.draw[current](); }
+  W.render = render;
+  dash.onData(render);
+  // open the linked page or section once scripts below have registered
+  setTimeout(() => {
+    const hash = location.hash.slice(1);
+    if (PAGES.includes(hash)) show(hash);
+    else show('overview');
+  }, 0);
+})();
+</script>
+
+<script>
+// ===== Overview
+(() => {
+  const W = window.NI, f0 = d3.format(',');
+  function regionChart() {
+    const el = document.getElementById('ch-region'); if (!el) return;
+    const s = W.state(el, ['by_region']); if (!s) return;
+    const rows = [...s.by_region].sort((a, b) => b.total - a.total);
+    const c0 = dash.colors[0], muted = 'var(--cds-chart-muted)';
+    const keys = [['severe', 'Severe (4+ wks)', c0, 1], ['moderate', 'Moderate (1–4 wks)', c0, .6], ['minor', 'Minor (≤1 wk)', c0, .3], ['unknown', 'Unknown', muted, 1]];
+    W.legend(document.getElementById('lg-region'), keys.map((k) => [k[2], k[1], k[3]]));
+    el.replaceChildren();
+    const w = el.clientWidth, bh = 18, gap = 8, h = rows.length * (bh + gap) + 24;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.region)) + 10, rm = W.textWidth(svg, rows.map((r) => f0(r.total))) + 10;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => r.total)], [lm, w - rm]);
+    const y = d3.scaleBand(rows.map((r) => r.region), [0, h - 24]).paddingInner(gap / (bh + gap));
+    svg.append('g').attr('transform', `translate(0,${h - 24})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor(w / 110))).tickSize(-(h - 24))).call(W.axisClean).call((g) => g.select('.domain').remove()).call((g) => g.selectAll('line').attr('stroke', 'var(--cds-chart-grid)'));
+    const stack = d3.stack().keys(keys.map((k) => k[0]))(rows);
+    stack.forEach((layer, i) => {
+      svg.append('g').selectAll('rect').data(layer).join('rect')
+        .attr('x', (d) => x(d[0])).attr('y', (d) => y(d.data.region)).attr('height', y.bandwidth())
+        .attr('width', (d) => Math.max(0, x(d[1]) - x(d[0]) - (i < 3 ? 2 : 0))).attr('rx', i === 3 ? 4 : 0)
+        .attr('fill', keys[i][2]).attr('fill-opacity', keys[i][3])
+        .on('mousemove', (e, d) => W.tipShow(e, [['t', d.data.region], ['', `${keys[i][1]}: ${f0(d.data[keys[i][0]])}`], ['', `All injuries: ${f0(d.data.total)}`]]))
+        .on('mouseleave', W.tipHide);
+    });
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', (r) => y(r.region) + y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').attr('fill', 'var(--color-fg)').style('fill', 'var(--color-fg)').text((r) => r.region);
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'axis-label').attr('x', (r) => x(r.total) + 6).attr('y', (r) => y(r.region) + y.bandwidth() / 2).attr('dy', '.35em').text((r) => f0(r.total));
+  }
+  function gamesChart() {
+    const el = document.getElementById('ch-games'); if (!el) return;
+    const s = W.state(el, ['by_region']); if (!s) return;
+    const rows = [...s.by_region].sort((a, b) => b.games_missed_total - a.games_missed_total);
+    el.replaceChildren();
+    const w = el.clientWidth, bh = 18, gap = 8, h = rows.length * (bh + gap) + 24;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.region)) + 10;
+    const lab = (r) => `${f0(r.games_missed_total)} · median ${d3.format('.0f')(r.median_games_missed)}`;
+    const rm = W.textWidth(svg, rows.map(lab)) + 10;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => r.games_missed_total)], [lm, Math.max(lm + 40, w - rm)]);
+    const y = d3.scaleBand(rows.map((r) => r.region), [0, h - 24]).paddingInner(gap / (bh + gap));
+    svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', lm).attr('y', (r) => y(r.region)).attr('height', y.bandwidth()).attr('width', (r) => Math.max(0, x(r.games_missed_total) - lm)).attr('rx', 4).attr('fill', dash.colors[1])
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', r.region], ['', `Games missed: ${f0(r.games_missed_total)}`], ['', `Median per injury: ${r.median_games_missed}`]])).on('mouseleave', W.tipHide);
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', (r) => y(r.region) + y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.region);
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'axis-label').attr('x', (r) => x(r.games_missed_total) + 6).attr('y', (r) => y(r.region) + y.bandwidth() / 2).attr('dy', '.35em').text(lab);
+  }
+  function vbars(el, rows, xk, yk, color, tipf, ylab) {
+    el.replaceChildren();
+    const w = el.clientWidth, h = 220, mb = 24, mt = 18;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const yMax = d3.max(rows, (r) => r[yk]);
+    const y = d3.scaleLinear([0, yMax * 1.1], [h - mb, mt]).nice();
+    const lm = W.textWidth(svg, y.ticks(4).map(f0)) + 10;
+    const x = d3.scaleBand(rows.map((r) => r[xk]), [lm, w]).padding(0.25);
+    svg.append('g').attr('transform', `translate(${lm},0)`).call(d3.axisLeft(y).ticks(4).tickFormat(f0).tickSize(-(w - lm))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    const xa = svg.append('g').attr('transform', `translate(0,${h - mb})`).call(d3.axisBottom(x).tickSize(0).tickPadding(8)).call(W.axisClean);
+    xa.select('.domain').attr('stroke', 'var(--cds-chart-axis)');
+    const bw = Math.min(32, x.bandwidth());
+    if (x.bandwidth() < 34) xa.selectAll('text').text((d, i) => (rows.length > 8 && i % 2) ? '' : d);
+    svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', (r) => x(r[xk]) + (x.bandwidth() - bw) / 2).attr('width', bw).attr('y', (r) => y(r[yk])).attr('height', (r) => y(0) - y(r[yk])).attr('rx', 4).attr('fill', color)
+      .on('mousemove', (e, r) => W.tipShow(e, tipf(r))).on('mouseleave', W.tipHide);
+  }
+  function seasonChart() {
+    const el = document.getElementById('ch-season'); if (!el) return;
+    const s = W.state(el, ['by_season']); if (!s) return;
+    vbars(el, s.by_season, 'season_label', 'severe', dash.colors[0], (r) => [['t', r.season_label], ['', `Severe injuries: ${f0(r.severe)}`], ['', `All logged injuries: ${f0(r.injuries)}`], ['', `Games missed: ${f0(r.games_missed)}`]]);
+  }
+  function monthChart() {
+    const el = document.getElementById('ch-month'); if (!el) return;
+    const s = W.state(el, ['by_month']); if (!s) return;
+    vbars(el, s.by_month, 'month_name', 'injuries', dash.colors[0], (r) => [['t', r.month_name], ['', `New injuries: ${f0(r.injuries)}`]]);
+  }
+  W.draw.overview = () => { regionChart(); gamesChart(); seasonChart(); monthChart(); };
+})();
+</script>
+
+<script>
+// ===== Archetypes
+(() => {
+  const W = window.NI, f1 = d3.format('.1f'), f2 = d3.format('.2f'), f0 = d3.format(',');
+  const ARCH = ['Slashing playmaker', 'Slim scoring guard', 'Scoring wing', 'Defensive wing', 'Spot-up shooter', 'High-usage forward/big', 'Post big', 'Rim-running big'];
+  function table() {
+    const t = document.getElementById('tbl-arch'); if (!t) return;
+    const tb = t.querySelector('tbody');
+    const d = W.get('by_archetype'), u = W.get('arch_units'); if (!d || !u) return;
+    const rows = [...d].sort((a, b) => a.order - b.order);
+    const units = new Map(u.map((x) => [x.archetype, x]));
+    tb.replaceChildren();
+    for (const r of rows) {
+      const tr = W.mk('tr'); tr.style.cursor = 'default';
+      tr.append(W.mk('td', {}, r.archetype), W.mk('td', { class: 'hide-n' }, r.description), W.mk('td', { class: 'r' }, units.get(r.archetype).height_ft_in), W.mk('td', { class: 'r hide-n' }, d3.format('.0f')(r.height_cm)), W.mk('td', { class: 'r' }, d3.format(',')(units.get(r.archetype).weight_lb)), W.mk('td', { class: 'r hide-n' }, d3.format('.0f')(r.weight_kg)),
+        W.mk('td', { class: 'r hide-n' }, f0(r.player_seasons)), W.mk('td', { class: 'r' }, f2(r.per_10k_min)), W.mk('td', { class: 'r' }, f2(r.severe_per_10k_min)), W.mk('td', { class: 'r hide-n' }, f2(r.games_missed_per_1k_min)));
+      tb.appendChild(tr);
+    }
+  }
+  function ciChart(id, field, lo, hi, color, refField) {
+    const el = document.getElementById(id); if (!el) return;
+    const s = W.state(el, ['by_archetype', 'league_rate']); if (!s) return;
+    const rows = [...s.by_archetype].sort((a, b) => a.order - b.order);
+    const ref = s.league_rate[0][refField];
+    el.replaceChildren();
+    const w = el.clientWidth, rh = 32, h = rows.length * rh + 28;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.archetype)) + 12;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => r[hi]) * 1.08], [lm, w - 12]).nice();
+    const y = d3.scaleBand(rows.map((r) => r.archetype), [0, h - 28]);
+    svg.append('g').attr('transform', `translate(0,${h - 28})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((w - lm) / 80))).tickSize(-(h - 28))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    svg.append('line').attr('x1', x(ref)).attr('x2', x(ref)).attr('y1', 0).attr('y2', h - 28).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r.archetype) + y.bandwidth() / 2})`);
+    g.append('line').attr('x1', (r) => x(r[lo])).attr('x2', (r) => x(r[hi])).attr('stroke', color).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-opacity', .45);
+    g.append('circle').attr('cx', (r) => x(r[field])).attr('r', 5).attr('fill', color).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    g.append('text').attr('class', 'axis-label').attr('x', lm - 10).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.archetype);
+    g.append('rect').attr('x', lm).attr('y', -rh / 2).attr('width', w - lm).attr('height', rh).attr('fill', 'transparent')
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', r.archetype], ['', `Rate: ${f2(r[field])} per 10k min`], ['', `95% interval: ${f2(r[lo])}–${f2(r[hi])}`], ['', `League: ${f2(ref)}`]])).on('mouseleave', W.tipHide);
+  }
+  function heat() {
+    const el = document.getElementById('ch-heat'); if (!el) return;
+    const s = W.state(el, ['arch_region']); if (!s) return;
+    const rows = s.arch_region;
+    const regions = [...new Set(rows.map((r) => r.region))];
+    const lowC = W.color(dash.colors[0]), highC = W.color(dash.colors[1]), mid = W.color('var(--color-panel)');
+    const lowI = d3.interpolateRgb(mid, lowC), highI = d3.interpolateRgb(mid, highC);
+    const fill = (rr) => { const t = Math.log(Math.max(.3, Math.min(3, rr))); return t < 0 ? lowI(Math.min(1, -t / Math.log(2.5)) * .85) : highI(Math.min(1, t / Math.log(2.5)) * .85); };
+    W.legend(document.getElementById('lg-heat'), [[lowC, 'Lower than league'], [mid, 'About league average'], [highC, 'Higher than league']]);
+    el.replaceChildren();
+    const short = { 'Slashing playmaker': ['Slashing', 'playmaker'], 'Slim scoring guard': ['Slim scoring', 'guard'], 'Scoring wing': ['Scoring', 'wing'], 'Defensive wing': ['Defensive', 'wing'], 'Spot-up shooter': ['Spot-up', 'shooter'], 'High-usage forward/big': ['High-usage', 'fwd/big'], 'Post big': ['Post', 'big'], 'Rim-running big': ['Rim-running', 'big'] };
+    const w0 = el.clientWidth;
+    const svgT = d3.select(el).append('svg');
+    const lm = W.textWidth(svgT, regions) + 12; svgT.remove();
+    const cw = Math.max(54, (w0 - lm) / ARCH.length), ch = 30, top = 42;
+    const w = lm + cw * ARCH.length, h = top + ch * regions.length + 4;
+    const svg = d3.select(el).append('svg').attr('width', Math.max(w, w0)).attr('viewBox', `0 0 ${Math.max(w, w0)} ${h}`).attr('height', h);
+    ARCH.forEach((a, i) => {
+      const t = svg.append('text').attr('class', 'axis-label').attr('x', lm + cw * i + cw / 2).attr('y', 14).attr('text-anchor', 'middle').style('fill', 'var(--color-fg)');
+      t.append('tspan').attr('x', lm + cw * i + cw / 2).text(short[a][0]); t.append('tspan').attr('x', lm + cw * i + cw / 2).attr('dy', '1.2em').text(short[a][1]);
+    });
+    regions.forEach((r, j) => svg.append('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', top + ch * j + ch / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text(r));
+    const cells = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (d) => `translate(${lm + cw * ARCH.indexOf(d.archetype)},${top + ch * regions.indexOf(d.region)})`);
+    cells.append('rect').attr('x', 1).attr('y', 1).attr('width', cw - 2).attr('height', ch - 2).attr('rx', 4).attr('fill', (d) => fill(d.rr))
+      .attr('stroke', (d) => d.signal ? 'var(--color-fg)' : 'none').attr('stroke-width', 1.5);
+    cells.append('text').attr('x', cw / 2).attr('y', ch / 2).attr('dy', '.35em').attr('text-anchor', 'middle').style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg)').style('font-variant-numeric', 'tabular-nums')
+      .text((d) => (d.signal === 'higher' ? '▲ ' : d.signal === 'lower' ? '▼ ' : '') + f2(d.rr));
+    cells.append('rect').attr('width', cw).attr('height', ch).attr('fill', 'transparent')
+      .on('mousemove', (e, d) => W.tipShow(e, [['t', `${d.archetype} · ${d.region}`], ['', `Relative to league: ${f2(d.rr)} (95% ${f2(d.rr_lo)}–${f2(d.rr_hi)})`], ['', `Injuries: ${f0(d.injuries)} · ${f2(d.per_10k_min)} per 10k min`], ['', `Share of this archetype's injuries: ${d3.format('.0%')(d.share)}`]])).on('mouseleave', W.tipHide);
+  }
+  function weight() {
+    const el = document.getElementById('ch-weight'); if (!el) return;
+    const s = W.state(el, ['weight_band']); if (!s) return;
+    const rows = s.weight_band; const regions = [...new Set(rows.map((r) => r.region))]; const bands = [...new Set(rows.map((r) => r.wband))];
+    el.replaceChildren();
+    const W0 = el.clientWidth, cols = Math.max(1, Math.min(regions.length, Math.floor(W0 / 190))), pw = W0 / cols, ph = 170, rowsN = Math.ceil(regions.length / cols), h = rowsN * (ph + 16);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W0} ${h}`).attr('height', h);
+    const yMax = d3.max(rows, (r) => r.per_10k_min);
+    regions.forEach((reg, i) => {
+      const gx = (i % cols) * pw, gy = Math.floor(i / cols) * (ph + 16);
+      const g = svg.append('g').attr('transform', `translate(${gx},${gy})`);
+      const y = d3.scaleLinear([0, yMax], [ph - 22, 22]).nice();
+      const x = d3.scaleBand(bands, [28, pw - 10]).padding(.25);
+      g.append('text').attr('x', 28).attr('y', 12).style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg)').style('font-weight', 'var(--cds-font-weight-medium)').text(reg);
+      g.append('g').attr('transform', 'translate(28,0)').call(d3.axisLeft(y).ticks(3).tickFormat(d3.format('.1f')).tickSize(-(pw - 38))).call(W.axisClean).call((a) => a.select('.domain').remove());
+      g.append('g').attr('transform', `translate(0,${ph - 22})`).call(d3.axisBottom(x).tickSize(0).tickPadding(6).tickFormat((b) => W.bandLb[b] || b)).call(W.axisClean).call((a) => a.select('.domain').attr('stroke', 'var(--cds-chart-axis)'));
+      const bw = Math.min(28, x.bandwidth());
+      g.selectAll('rect').data(rows.filter((r) => r.region === reg)).join('rect').attr('x', (r) => x(r.wband) + (x.bandwidth() - bw) / 2).attr('width', bw).attr('y', (r) => y(r.per_10k_min)).attr('height', (r) => y(0) - y(r.per_10k_min)).attr('rx', 4).attr('fill', dash.colors[0])
+        .on('mousemove', (e, r) => W.tipShow(e, [['t', `${r.region} · ${W.bandFull[r.wband] || r.wband}`], ['', `${f2(r.per_10k_min)} injuries per 10k min`], ['', `Minutes in band: ${f0(Math.round(r.minutes))}`]])).on('mouseleave', W.tipHide);
+    });
+  }
+  W.draw.archetypes = () => {
+    table();
+    ciChart('ch-arch-rate', 'per_10k_min', 'ci_lo', 'ci_hi', dash.colors[0], 'per_10k_min');
+    ciChart('ch-arch-sev', 'severe_per_10k_min', 'sev_ci_lo', 'sev_ci_hi', dash.colors[1], 'severe_per_10k_min');
+    heat(); weight();
+  };
+})();
+</script>
+
+<script>
+// ===== Load + Recurrence
+(() => {
+  const W = window.NI, f2 = d3.format('.2f'), pct = d3.format('.1%'), f0 = d3.format(',');
+  function ratio(id, factor) {
+    const el = document.getElementById(id); if (!el) return;
+    const s = W.state(el, ['workload']); if (!s) return;
+    const rows = s.workload.filter((r) => r.factor === factor);
+    el.replaceChildren();
+    const w = el.clientWidth, rh = 40, h = rows.length * rh + 30;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.bucket)) + 12;
+    const rm = W.textWidth(svg, rows.map((r) => '×' + f2(r.ratio))) + 10;
+    const x = d3.scaleLinear([0, Math.max(1.4, d3.max(rows, (r) => r.ratio) * 1.1)], [lm, w - rm]);
+    const y = d3.scaleBand(rows.map((r) => r.bucket), [0, h - 30]).padding(.35);
+    svg.append('g').attr('transform', `translate(0,${h - 30})`).call(d3.axisBottom(x).ticks(5).tickFormat((d) => '×' + d).tickSize(-(h - 30))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', lm).attr('y', (r) => y(r.bucket)).attr('height', y.bandwidth()).attr('width', (r) => x(r.ratio) - lm).attr('rx', 4)
+      .attr('fill', (r) => r.ratio > 1 ? dash.colors[1] : 'var(--cds-chart-muted)')
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', r.bucket], ['', `Share of injury games: ${pct(r.injury_games_share)}`], ['', `Share of all games: ${pct(r.all_games_share)}`], ['', `Ratio: ×${f2(r.ratio)}`]])).on('mouseleave', W.tipHide);
+    svg.append('line').attr('x1', x(1)).attr('x2', x(1)).attr('y1', 0).attr('y2', h - 30).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', (r) => y(r.bucket) + y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.bucket);
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'axis-label').attr('x', (r) => x(r.ratio) + 6).attr('y', (r) => y(r.bucket) + y.bandwidth() / 2).attr('dy', '.35em').text((r) => '×' + f2(r.ratio));
+  }
+  W.evidenceList = (el, filter) => {
+    const ev = W.get('evidence'); if (!ev) { W.state(el, ['evidence']); return; }
+    el.replaceChildren();
+    for (const r of ev.filter(filter)) {
+      const d = W.mk('div', { class: 'ev' });
+      d.append(W.mk('b', {}, r.topic + '. '), W.mk('span', { 'data-source': 'evidence', 'data-where': 'id=' + encodeURIComponent(r.id), 'data-field': 'finding' }, r.finding), document.createTextNode(' '));
+      const a = W.mk('a', { href: r.source_url, target: '_blank', rel: 'noopener' }, r.source_title); d.appendChild(a);
+      el.appendChild(d);
+    }
+  };
+  W.draw.load = () => {
+    ratio('ch-prior', 'Load over prior 5 games'); ratio('ch-rest', 'Rest days before the game');
+    const el = document.getElementById('ev-load'); if (el) W.evidenceList(el, (r) => r.region === 'Workload');
+  };
+
+  function recur() {
+    const el = document.getElementById('ch-recur'); if (!el) return;
+    const s = W.state(el, ['by_region']); if (!s) return;
+    const rows = s.by_region.filter((r) => r.recur_365 != null).sort((a, b) => b.recurrence_multiplier - a.recurrence_multiplier);
+    const c = dash.colors[1];
+    W.legend(document.getElementById('lg-recur'), [['var(--cds-chart-muted)', 'Baseline: any injury there in a season'], [c, 'After an injury: same region again within a year']]);
+    el.replaceChildren();
+    const w = el.clientWidth, rh = 28, h = rows.length * rh + 28;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.region)) + 12;
+    const lab = (r) => `${d3.format('.0%')(r.recur_365)} · ×${d3.format('.1f')(r.recurrence_multiplier)}`;
+    const rm = W.textWidth(svg, rows.map(lab)) + 12;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => Math.max(r.recur_365, r.baseline_season_rate))], [lm, w - rm]).nice();
+    const y = d3.scaleBand(rows.map((r) => r.region), [0, h - 28]);
+    svg.append('g').attr('transform', `translate(0,${h - 28})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.0%')).tickSize(-(h - 28))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r.region) + y.bandwidth() / 2})`);
+    g.append('line').attr('x1', (r) => x(r.baseline_season_rate)).attr('x2', (r) => x(r.recur_365)).attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2).attr('stroke-linecap', 'round');
+    g.append('circle').attr('cx', (r) => x(r.baseline_season_rate)).attr('r', 5).attr('fill', 'var(--cds-chart-muted)').attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    g.append('circle').attr('cx', (r) => x(r.recur_365)).attr('r', 6).attr('fill', c).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    g.append('text').attr('class', 'axis-label').attr('x', lm - 10).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.region);
+    g.append('text').attr('class', 'axis-label').attr('x', (r) => x(Math.max(r.recur_365, r.baseline_season_rate)) + 10).attr('dy', '.35em').text(lab);
+    g.append('rect').attr('x', lm).attr('y', -rh / 2).attr('width', w - lm).attr('height', rh).attr('fill', 'transparent')
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', r.region], ['', `Same region again within a year: ${pct(r.recur_365)} (of ${f0(r.recur_sample)} injuries)`], ['', `Baseline per season: ${pct(r.baseline_season_rate)}`], ['', `Multiplier: ×${d3.format('.1f')(r.recurrence_multiplier)}`]])).on('mouseleave', W.tipHide);
+  }
+  function recurArch() {
+    const el = document.getElementById('ch-recur-arch'); if (!el) return;
+    const s = W.state(el, ['by_archetype']); if (!s) return;
+    const rows = [...s.by_archetype].sort((a, b) => b.recur_365 - a.recur_365);
+    el.replaceChildren();
+    const w = el.clientWidth, rh = 30, h = rows.length * rh + 28;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.archetype)) + 12;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => r.recur_365) * 1.15], [lm, w - 48]).nice();
+    const y = d3.scaleBand(rows.map((r) => r.archetype), [0, h - 28]).padding(.3);
+    svg.append('g').attr('transform', `translate(0,${h - 28})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('.0%')).tickSize(-(h - 28))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', lm).attr('y', (r) => y(r.archetype)).attr('height', y.bandwidth()).attr('width', (r) => x(r.recur_365) - lm).attr('rx', 4).attr('fill', dash.colors[0])
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', r.archetype], ['', `Re-injury within a year: ${pct(r.recur_365)}`], ['', `Injuries followed: ${f0(r.recur_sample)}`]])).on('mouseleave', W.tipHide);
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', (r) => y(r.archetype) + y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.archetype);
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'axis-label').attr('x', (r) => x(r.recur_365) + 6).attr('y', (r) => y(r.archetype) + y.bandwidth() / 2).attr('dy', '.35em').text((r) => d3.format('.0%')(r.recur_365));
+  }
+  W.draw.recur = () => { recur(); recurArch(); };
+})();
+</script>
+
+<script>
+// ===== Case studies + playbook
+(() => {
+  const W = window.NI, f1 = d3.format('.1f'), f0 = d3.format(','), f2 = d3.format('.2f');
+  let caseFilter = 'All';
+  W.init.cases = () => {
+    document.getElementById('case-chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { caseFilter = b.dataset.v; W.render(); } });
+  };
+  function kv(parent, label, value, src, where, field) {
+    const d = W.mk('div'); const b = W.mk('b', { 'data-source': src, 'data-where': where, 'data-field': field }, value); d.append(b, W.mk('span', {}, label)); parent.appendChild(d);
+  }
+  W.draw.cases = () => {
+    const list = document.getElementById('case-list'); if (!list) return;
+    const s = W.state(list, ['cases']); if (!s) return;
+    const chips = document.getElementById('case-chips'); chips.replaceChildren();
+    for (const v of ['All', ...new Set(s.cases.map((c) => c.region))]) chips.appendChild(W.mk('button', { 'data-v': v, 'aria-pressed': v === caseFilter ? 'true' : 'false' }, v));
+    list.replaceChildren();
+    for (const c of s.cases.filter((c) => caseFilter === 'All' || c.region === caseFilter)) {
+      const where = 'id=' + encodeURIComponent(c.id);
+      const card = W.mk('article', { class: 'card', id: 'case-' + c.id });
+      card.append(W.mk('h2', { 'data-source': 'cases', 'data-where': where, 'data-field': 'player' }, c.player));
+      const sub = W.mk('p', { class: 'cap' });
+      sub.append(W.mk('span', { 'data-source': 'cases', 'data-where': where, 'data-field': 'injury' }, c.injury), document.createTextNode(' · '), W.mk('span', { 'data-source': 'cases', 'data-where': where, 'data-field': 'game_date' }, c.game_date), document.createTextNode(' vs ' + c.opponent + ' · ' + c.period));
+      card.appendChild(sub);
+      const pills = W.mk('div');
+      for (const t of [c.archetype, c.contact, c.phase]) pills.appendChild(W.mk('span', { class: 'pill' }, t));
+      card.appendChild(pills);
+      card.appendChild(W.mk('h3', {}, 'What happened'));
+      card.appendChild(W.mk('p', {}, c.what_happened));
+      card.appendChild(W.mk('h3', {}, 'Workload going in'));
+      const k = W.mk('div', { class: 'kv' });
+      kv(k, 'Minutes in the injury game', f1(c.game_min), 'cases', where, 'game_min');
+      if (c.prior5_mpg != null) kv(k, 'Avg minutes, previous 5 games', f1(c.prior5_mpg), 'cases', where, 'prior5_mpg');
+      kv(k, 'Regular-season avg minutes', f1(c.season_mpg), 'cases', where, 'season_mpg');
+      if (c.days_since_prev != null) kv(k, 'Days since previous game', f0(c.days_since_prev), 'cases', where, 'days_since_prev');
+      kv(k, 'Game # of the season (incl. playoffs)', f0(c.season_games), 'cases', where, 'season_games');
+      card.appendChild(k);
+      card.appendChild(W.mk('p', { class: 'cap' }, c.context));
+      card.appendChild(W.mk('h3', {}, 'Could it have been prevented?'));
+      card.appendChild(W.mk('p', {}, c.prevention_angle));
+      const links = W.mk('div');
+      const cst = W.clipLinks(links, c.id);
+      if (cst === 'none') card.appendChild(W.mk('p', { class: 'cap' }, (c.game_date && c.game_date < '2014-10-01') ? 'NBA.com has no play-level clips before the 2014-15 season, so there is no direct link for this game.' : 'No direct clip link for this game.'));
+      links.appendChild(W.mk('a', { class: 'btn-link', href: c.replay_url, target: '_blank', rel: 'noopener' }, '🔍 Search for the replay (unverified)'));
+      links.appendChild(W.mk('a', { class: 'btn-link', href: c.source_url, target: '_blank', rel: 'noopener' }, 'Source: ' + c.source_title));
+      card.appendChild(links);
+      list.appendChild(card);
+    }
+  };
+
+  // ----- playbook
+  let pbRegion = null;
+  W.init.playbook = () => {
+    document.getElementById('pb-chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { pbRegion = b.dataset.v; W.render(); } });
+  };
+  W.playbookCard = (body, region, opts = {}) => {
+    const pv = W.get('prevention'), reg = W.get('by_region'), ar = W.get('arch_region');
+    body.replaceChildren();
+    const p = pv && pv.find((r) => r.region === region);
+    const rr = reg && reg.find((r) => r.region === region);
+    if (!opts.compact) body.appendChild(W.mk('h2', {}, region));
+    if (p) {
+      body.appendChild(W.mk('h3', {}, 'How it usually happens'));
+      body.appendChild(W.mk('p', { 'data-source': 'prevention', 'data-where': 'region=' + encodeURIComponent(region), 'data-field': 'mechanism' }, p.mechanism));
+    }
+    if (rr) {
+      body.appendChild(W.mk('h3', {}, opts.compact ? 'How likely it is to happen again' : 'Re-injury risk if nothing changes'));
+      const k = W.mk('div', { class: 'kv' }); const wh = 'region=' + encodeURIComponent(region);
+      kv(k, 'Same region again within a year', d3.format('.0%')(rr.recur_365), 'by_region', wh, 'recur_365');
+      kv(k, 'Baseline chance per season', d3.format('.0%')(rr.baseline_season_rate), 'by_region', wh, 'baseline_season_rate');
+      kv(k, 'Times the baseline (×)', d3.format('.1f')(rr.recurrence_multiplier), 'by_region', wh, 'recurrence_multiplier');
+      kv(k, 'Median games missed', d3.format('.0f')(rr.median_games_missed), 'by_region', wh, 'median_games_missed');
+      body.appendChild(k);
+    }
+    if (ar && !opts.compact) {
+      const hi = ar.filter((r) => r.region === region && r.signal === 'higher'), lo = ar.filter((r) => r.region === region && r.signal === 'lower');
+      body.appendChild(W.mk('h3', {}, 'Who is most exposed in this data'));
+      const wrap = W.mk('div');
+      if (!hi.length && !lo.length) wrap.appendChild(W.mk('p', { class: 'cap' }, 'No archetype differs clearly from the league rate for this region.'));
+      const pill = (r, cls, sym) => { const s = W.mk('span', { class: 'pill ' + cls }, `${sym} ${r.archetype} ×`); s.appendChild(W.mk('span', { 'data-source': 'arch_region', 'data-where': 'cell=' + encodeURIComponent(r.cell), 'data-field': 'rr' }, f2(r.rr))); wrap.appendChild(s); };
+      for (const r of hi) pill(r, 'hi', '▲');
+      for (const r of lo) pill(r, 'lo', '▼');
+      body.appendChild(wrap);
+    }
+    if (p) {
+      body.appendChild(W.mk('h3', {}, 'How to prevent it'));
+      const ul = W.mk('ul', { class: 'steps' }); for (const s of p.prevention.split('|')) ul.appendChild(W.mk('li', {}, s)); body.appendChild(ul);
+      body.appendChild(W.mk('h3', {}, 'What staff should monitor'));
+      const ul2 = W.mk('ul', { class: 'steps' }); for (const s of p.monitoring.split('|')) ul2.appendChild(W.mk('li', {}, s)); body.appendChild(ul2);
+      if (!opts.compact) {
+        body.appendChild(W.mk('h3', {}, 'Evidence'));
+        const ev = W.mk('div'); body.appendChild(ev);
+        const ids = p.evidence_ids.split('|'); W.evidenceList(ev, (r) => ids.includes(r.id));
+      }
+    } else if (!opts.compact || !rr) {
+      body.appendChild(W.mk('p', { class: 'cap' }, 'No region-specific prevention card yet for this body region. General principles apply: complete rehab to objective benchmarks before return, and watch for repeat entries.'));
+    }
+  };
+  W.draw.playbook = () => {
+    const chips = document.getElementById('pb-chips'); if (!chips) return;
+    const body = document.getElementById('pb-body');
+    const pv = W.get('prevention');
+    for (const id of ['prevention', 'by_region', 'arch_region', 'evidence']) dash.data(id);
+    if (!pv) { W.state(body, ['prevention']); return; }
+    const regions = [...pv].sort((a, b) => a.order - b.order).map((r) => r.region);
+    if (!pbRegion) pbRegion = regions[0];
+    chips.replaceChildren(); for (const v of regions) chips.appendChild(W.mk('button', { 'data-v': v, 'aria-pressed': v === pbRegion ? 'true' : 'false' }, v));
+    const card = W.mk('div', { class: 'card', id: 'pb-card' }); body.replaceChildren(card);
+    W.playbookCard(card, pbRegion);
+  };
+})();
+</script>
+
+<script>
+// ===== Explorer
+(() => {
+  const W = window.NI, f0 = d3.format(','), f1 = d3.format('.1f'), f2 = d3.format('.2f');
+  const st = { q: '', region: '', arch: '', sev: '', team: '', sel: null };
+  W.explore = (f) => { Object.assign(st, { q: '', region: '', arch: '', sev: '', team: '', sel: null }, f); W.showPage('explorer');
+    const q = document.getElementById('ex-q'); if (q) { q.value = st.q; for (const [id, k] of [['ex-region', 'region'], ['ex-arch', 'arch'], ['ex-sev', 'sev'], ['ex-team', 'team']]) { const el = document.getElementById(id); if (el.dataset.filled) el.value = st[k]; } } W.render(); };
+  const LIMIT = 400;
+  W.init.explorer = () => {
+    const q = document.getElementById('ex-q');
+    q.addEventListener('input', () => { st.q = q.value.trim().toLowerCase(); W.render(); });
+    for (const [id, k] of [['ex-region', 'region'], ['ex-arch', 'arch'], ['ex-sev', 'sev'], ['ex-team', 'team']]) document.getElementById(id).addEventListener('change', (e) => { st[k] = e.target.value; W.render(); });
+    document.querySelector('#tbl-inj tbody').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr) { st.sel = tr.dataset.key; W.render(); } });
+  };
+  function fillSelect(el, label, values, cur) {
+    if (el.dataset.filled) return; el.dataset.filled = '1';
+    el.replaceChildren(new Option(label, ''), ...values.map((v) => new Option(v, v))); el.value = cur;
+  }
+  function detail(r) {
+    const box = document.getElementById('detail'); box.replaceChildren();
+    if (!r) { box.appendChild(W.mk('p', { class: 'cap' }, 'Select an injury to analyze it.')); return; }
+    const wh = 'id=' + encodeURIComponent(r.id);
+    box.appendChild(W.mk('h2', { 'data-source': 'injuries', 'data-where': wh, 'data-field': 'player' }, r.player));
+    const sub = W.mk('p', { class: 'cap' });
+    sub.append(W.mk('span', { 'data-source': 'injuries', 'data-where': wh, 'data-field': 'desc' }, r.desc), document.createTextNode(' · '), W.mk('span', { 'data-source': 'injuries', 'data-where': wh, 'data-field': 'start' }, r.start), document.createTextNode(' · ' + (r.team || '')));
+    box.appendChild(sub);
+    const pills = W.mk('div');
+    for (const t of [r.region, r.itype, r.severity, r.diagnosis].filter(Boolean)) pills.appendChild(W.mk('span', { class: 'pill' }, t));
+    box.appendChild(pills);
+
+    box.appendChild(W.mk('h3', {}, '1 · Who: player archetype'));
+    const A = W.get('by_archetype'); const a = A && r.archetype && A.find((x) => x.archetype === r.archetype);
+    if (a) {
+      box.appendChild(W.mk('p', {}, `${a.archetype}: ${a.description}`));
+      const ar = W.get('arch_region'); const cell = ar && ar.find((x) => x.archetype === r.archetype && x.region === r.region);
+      if (cell) {
+        const p = W.mk('p', { class: 'cap' });
+        p.append(document.createTextNode(`This archetype's ${r.region.toLowerCase()} injury rate is `), document.createTextNode('×'), W.mk('b', { 'data-source': 'arch_region', 'data-where': 'cell=' + encodeURIComponent(cell.cell), 'data-field': 'rr' }, f2(cell.rr)), document.createTextNode(cell.signal === 'higher' ? ' the league rate, a clear elevation.' : cell.signal === 'lower' ? ' the league rate, clearly below average.' : ' the league rate, within normal range.'));
+        box.appendChild(p);
+      }
+    } else box.appendChild(W.mk('p', { class: 'cap' }, 'Not enough minutes logged to profile this player.'));
+
+    box.appendChild(W.mk('h3', {}, '2 · When: game context'));
+    if (r.game_date) {
+      const k = W.mk('div', { class: 'kv' });
+      const add = (label, v, f) => { const d = W.mk('div'); d.append(W.mk('b', { 'data-source': 'injuries', 'data-where': wh, 'data-field': f }, v), W.mk('span', {}, label)); k.appendChild(d); };
+      add('Last game before absence', r.game_date, 'game_date');
+      add('Minutes that game', f1(r.game_min), 'game_min');
+      add('Season avg minutes', f1(r.season_mpg), 'season_mpg');
+      const plain = (label, v) => { const d = W.mk('div'); d.append(W.mk('b', {}, v), W.mk('span', {}, label)); k.appendChild(d); };
+      plain('Back-to-back', r.b2b ? 'Yes' : 'No');
+      plain('Playoffs', r.playoffs ? 'Yes' : 'No');
+      if (r.games_missed != null) add('Games missed', f0(r.games_missed), 'games_missed');
+      box.appendChild(k);
+      if (r.game_min != null && r.season_mpg && r.game_min < 0.5 * r.season_mpg) box.appendChild(W.mk('p', { class: 'cap note' }, 'Far fewer minutes than usual in that game: the injury most likely happened during it, and the player left early.'));
+    } else box.appendChild(W.mk('p', { class: 'cap' }, 'No matching game found in the box scores (often an off-season or practice injury).'));
+
+    box.appendChild(W.mk('h3', {}, '3 · Where: last play before leaving the game'));
+    if (r.last_play) {
+      const k2 = W.mk('div', { class: 'kv' });
+      const add2 = (label, v, f) => { const d = W.mk('div'); d.append(W.mk('b', { 'data-source': 'injuries', 'data-where': wh, 'data-field': f }, v), W.mk('span', {}, label)); k2.appendChild(d); };
+      add2('Play type', r.last_play, 'last_play');
+      add2('Possession', r.play_context, 'play_context');
+      if (r.court_zone) add2('Court zone', r.court_zone, 'court_zone');
+      add2('Quarter', r.period > 4 ? 'OT' : 'Q' + r.period, 'period');
+      box.appendChild(k2);
+      const p = W.mk('p', { class: 'cap' }); p.append(document.createTextNode('Play-by-play: '), W.mk('span', { 'data-source': 'injuries', 'data-where': wh, 'data-field': 'play_text' }, r.play_text));
+      box.appendChild(p);
+      box.appendChild(W.mk('p', { class: 'cap note' }, 'This is the player\'s last recorded action within two minutes of game time before he left. It is usually the injury play or the one right before it. Confirm on the replay.'));
+    } else box.appendChild(W.mk('p', { class: 'cap' }, 'Not located: the player didn\'t leave this game early, or the play-by-play couldn\'t be matched. Many injuries happen in practice or late in a game.'));
+
+    box.appendChild(W.mk('h3', {}, '4 · How: replay and likely mechanism'));
+    const d = new Date(r.start + 'T00:00:00Z');
+    const qy = `${r.player} ${r.desc} injury ${d.toLocaleString('en', { month: 'long', timeZone: 'UTC' })} ${d.getUTCFullYear()}`;
+    if (r.play_text) {
+      const cl = W.mk('div'); const st2 = W.clipLinks(cl, r.id);
+      if (st2 === 'ok') {
+        box.appendChild(cl);
+        box.appendChild(W.mk('p', { class: 'cap note' }, 'These open NBA.com\'s own clip page for the plays just before the player left. The injury itself may be on either clip or the next possession, so check both. Nothing is copied or hosted here.'));
+      } else if (st2 === 'none') {
+        box.appendChild(W.mk('p', { class: 'cap' }, (r.game_date && r.game_date < '2014-10-01') ? 'NBA.com has no play-level clips before the 2014-15 season, so there is no direct link for this injury.' : 'No direct clip was found for this play.'));
+      }
+    }
+    box.appendChild(W.mk('a', { class: 'btn-link', href: 'https://www.youtube.com/results?search_query=' + encodeURIComponent(qy), target: '_blank', rel: 'noopener' }, '🔍 Search for the replay (unverified)'));
+    const body = W.mk('div'); box.appendChild(body);
+    W.playbookCard(body, r.region, { compact: true });
+  }
+  W.draw.explorer = () => {
+    const t = document.getElementById('tbl-inj'); if (!t) return;
+    const tb = t.querySelector('tbody'); const cnt = document.getElementById('ex-count');
+    for (const id of ['by_archetype', 'arch_region', 'prevention', 'by_region']) dash.data(id);
+    const s = W.state(document.getElementById('ex-count'), ['injuries']);
+    if (!s) return;
+    const rows = s.injuries;
+    fillSelect(document.getElementById('ex-region'), 'All body regions', [...new Set(rows.map((r) => r.region))].sort(), st.region);
+    fillSelect(document.getElementById('ex-arch'), 'All archetypes', [...new Set(rows.map((r) => r.archetype).filter(Boolean))].sort(), st.arch);
+    fillSelect(document.getElementById('ex-sev'), 'All severities', ['Severe (>4 wks)', 'Moderate (1-4 wks)', 'Minor (≤1 wk)', 'Unknown'], st.sev);
+    fillSelect(document.getElementById('ex-team'), 'All teams', [...new Set(rows.map((r) => r.team_name).filter(Boolean))].sort(), st.team);
+    const m = rows.filter((r) => (!st.region || r.region === st.region) && (!st.arch || r.archetype === st.arch) && (!st.sev || r.severity === st.sev) && (!st.team || r.team_name === st.team) &&
+      (!st.q || `${r.player} ${r.team_name || r.team} ${r.desc}`.toLowerCase().includes(st.q))).sort((a, b) => (a.start < b.start ? 1 : -1));
+    cnt.textContent = m.length > LIMIT ? `${f0(m.length)} injuries match, showing the most recent ${f0(LIMIT)}. Narrow with search or filters.` : `${f0(m.length)} injuries match.`;
+    tb.replaceChildren();
+    for (const r of m.slice(0, LIMIT)) {
+      const tr = W.mk('tr', { 'data-key': r.id, 'aria-selected': r.id === st.sel ? 'true' : 'false' });
+      tr.append(W.mk('td', {}, r.start), W.mk('td', {}, r.player), W.mk('td', {}, r.desc), W.mk('td', { class: 'hide-n' }, r.severity), W.mk('td', { class: 'r' }, r.games_missed == null ? '' : f0(r.games_missed)), W.mk('td', { class: 'hide-n' }, r.team_name || ''), W.mk('td', { class: 'hide-n' }, r.archetype || ''));
+      tb.appendChild(tr);
+    }
+    detail(st.sel ? rows.find((r) => r.id === st.sel) : null);
+  };
+})();
+</script>
+
+<script>
+// ===== Teams & players
+(() => {
+  const W = window.NI, f0 = d3.format(','), f1 = d3.format('.1f'), f2 = d3.format('.2f'), pct = d3.format('.0%');
+  let team = null, sortK = 'injuries', sortDir = -1, plq = '';
+  W.init.teams = () => {
+    const q = document.getElementById('pl-q');
+    q.addEventListener('input', () => { plq = q.value.trim().toLowerCase(); W.render(); });
+    document.querySelector('#tbl-players thead').addEventListener('click', (e) => { const b = e.target.closest('button.sort'); if (!b) return; if (sortK === b.dataset.k) sortDir *= -1; else { sortK = b.dataset.k; sortDir = b.dataset.k === 'player' ? 1 : -1; } W.render(); });
+    document.querySelector('#tbl-players tbody').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr) W.explore({ q: tr.dataset.name.toLowerCase() }); });
+  };
+  function teamRate() {
+    const el = document.getElementById('ch-team-rate'); if (!el) return;
+    const s = W.state(el, ['teams']); if (!s) return;
+    const rows = [...s.teams].sort((a, b) => b.injuries_per_season - a.injuries_per_season);
+    if (!team) team = rows[0].team_code;
+    const avg = rows[0].league_avg_per_season;
+    el.replaceChildren();
+    const w = el.clientWidth, rh = 24, h = rows.length * rh + 28;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.team_name)) + 12;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => r.ci_hi) * 1.05], [lm, w - 40]).nice();
+    const y = d3.scaleBand(rows.map((r) => r.team_code), [0, h - 28]).padding(.25);
+    svg.append('g').attr('transform', `translate(0,${h - 28})`).call(d3.axisBottom(x).ticks(5).tickSize(-(h - 28))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r.team_code)})`).style('cursor', 'pointer')
+      .on('click', (e, r) => { team = r.team_code; W.render(); });
+    g.append('rect').attr('x', lm).attr('height', y.bandwidth()).attr('width', (r) => x(r.injuries_per_season) - lm).attr('rx', 4)
+      .attr('fill', (r) => r.team_code === team ? dash.colors[1] : dash.colors[0]).attr('fill-opacity', (r) => r.team_code === team ? 1 : .75);
+    g.append('line').attr('x1', (r) => x(r.ci_lo)).attr('x2', (r) => x(r.ci_hi)).attr('y1', y.bandwidth() / 2).attr('y2', y.bandwidth() / 2).attr('stroke', 'var(--color-fg)').attr('stroke-opacity', .45).attr('stroke-width', 1.5);
+    g.append('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').style('font-weight', (r) => r.team_code === team ? 'var(--cds-font-weight-medium)' : null).text((r) => r.team_name);
+    g.append('rect').attr('x', 0).attr('y', -2).attr('width', w).attr('height', y.bandwidth() + 4).attr('fill', 'transparent')
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', r.team_name], ['', `${f1(r.injuries_per_season)} injuries per season (95% ${f1(r.ci_lo)}–${f1(r.ci_hi)})`], ['', `${f1(r.severe_per_season)} severe per season · ${f0(Math.round(r.games_missed_per_season))} games missed per season`], ['', `×${f2(r.vs_league)} the league average`]])).on('mouseleave', W.tipHide);
+    svg.append('line').attr('x1', x(avg)).attr('x2', x(avg)).attr('y1', 0).attr('y2', h - 28).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+  }
+  function teamDetail() {
+    const T = W.get('teams'); if (!T || !team) return;
+    const t = T.find((r) => r.team_code === team); if (!t) return;
+    const wh = 'team_code=' + encodeURIComponent(team);
+    document.getElementById('team-title').textContent = t.team_name;
+    document.getElementById('team-sub').textContent = 'All new injury episodes, 2010-11 to 2019-20.';
+    const kv = document.getElementById('team-kv'); kv.replaceChildren();
+    const add = (label, v, f) => { const d = W.mk('div'); d.append(W.mk('b', { 'data-source': 'teams', 'data-where': wh, 'data-field': f }, v), W.mk('span', {}, label)); kv.appendChild(d); };
+    add('Injuries per season', f1(t.injuries_per_season), 'injuries_per_season');
+    add('Severe per season', f1(t.severe_per_season), 'severe_per_season');
+    add('Games missed per season', f0(Math.round(t.games_missed_per_season)), 'games_missed_per_season');
+    add('Times the league average (×)', f2(t.vs_league), 'vs_league');
+    add('Players injured', f0(t.players), 'players');
+    add('Knee + ankle share', pct(t.knee_ankle_share), 'knee_ankle_share');
+    // players
+    const el = document.getElementById('ch-team-players');
+    const s = W.state(el, ['team_players']);
+    if (s) {
+      const rows = s.team_players.filter((r) => r.team_code === team);
+      el.replaceChildren();
+      const w = el.clientWidth, rh = 24, h = rows.length * rh + 4;
+      const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+      const lm = W.textWidth(svg, rows.map((r) => r.player)) + 12;
+      const x = d3.scaleLinear([0, d3.max(rows, (r) => r.injuries) || 1], [lm, w - 90]);
+      const y = d3.scaleBand(rows.map((r) => r.player), [0, h - 4]).padding(.25);
+      const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r.player)})`).style('cursor', 'pointer').on('click', (e, r) => W.explore({ q: r.player.toLowerCase(), team: '' }));
+      g.append('rect').attr('x', lm).attr('height', y.bandwidth()).attr('width', (r) => x(r.injuries) - lm).attr('rx', 4).attr('fill', dash.colors[0]);
+      g.append('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.player);
+      g.append('text').attr('class', 'axis-label').attr('x', (r) => x(r.injuries) + 6).attr('y', y.bandwidth() / 2).attr('dy', '.35em').text((r) => `${f0(r.injuries)} · ${f0(r.games_missed)} games`);
+      g.append('rect').attr('width', w).attr('height', y.bandwidth()).attr('fill', 'transparent')
+        .on('mousemove', (e, r) => W.tipShow(e, [['t', r.player], ['', `${f0(r.injuries)} injuries with this team · ${f0(r.severe)} severe`], ['', `${f0(r.games_missed)} games missed · click to open in the explorer`]])).on('mouseleave', W.tipHide);
+    }
+    // regions vs league
+    const el2 = document.getElementById('ch-team-regions');
+    const s2 = W.state(el2, ['team_regions']);
+    if (s2) {
+      const rows = s2.team_regions.filter((r) => r.team_code === team).sort((a, b) => b.share - a.share).slice(0, 8);
+      W.legend(document.getElementById('lg-team-reg'), [['var(--cds-chart-muted)', 'League'], [dash.colors[1], t.team_name]]);
+      el2.replaceChildren();
+      const w = el2.clientWidth, rh = 28, h = rows.length * rh + 26;
+      const svg = d3.select(el2).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+      const lm = W.textWidth(svg, rows.map((r) => r.region)) + 12;
+      const x = d3.scaleLinear([0, d3.max(rows, (r) => Math.max(r.share, r.league_share)) * 1.1], [lm, w - 12]).nice();
+      const y = d3.scaleBand(rows.map((r) => r.region), [0, h - 26]);
+      svg.append('g').attr('transform', `translate(0,${h - 26})`).call(d3.axisBottom(x).ticks(4).tickFormat(pct).tickSize(-(h - 26))).call(W.axisClean).call((g) => g.select('.domain').remove());
+      const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r.region) + y.bandwidth() / 2})`);
+      g.append('line').attr('x1', (r) => x(r.league_share)).attr('x2', (r) => x(r.share)).attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2);
+      g.append('circle').attr('cx', (r) => x(r.league_share)).attr('r', 5).attr('fill', 'var(--cds-chart-muted)').attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+      g.append('circle').attr('cx', (r) => x(r.share)).attr('r', 6).attr('fill', dash.colors[1]).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+      g.append('text').attr('class', 'axis-label').attr('x', lm - 10).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.region);
+      g.append('rect').attr('x', lm).attr('y', -rh / 2).attr('width', w - lm).attr('height', rh).attr('fill', 'transparent')
+        .on('mousemove', (e, r) => W.tipShow(e, [['t', `${t.team_name} · ${r.region}`], ['', `${pct(r.share)} of the team's injuries (${f0(r.n)})`], ['', `League: ${pct(r.league_share)}`]])).on('mouseleave', W.tipHide);
+    }
+    const act = document.getElementById('team-actions'); act.replaceChildren();
+    const b = W.mk('button', { class: 'btn-link', type: 'button' }, `Open all ${t.team_name} injuries in the explorer`);
+    b.style.background = 'none'; b.style.cursor = 'pointer'; b.style.font = 'inherit'; b.style.fontSize = 'var(--cds-font-size-caption)'; b.style.color = 'inherit';
+    b.addEventListener('click', () => W.explore({ team: t.team_name })); act.appendChild(b);
+  }
+  function teamSeason() {
+    const el = document.getElementById('ch-team-season'); if (!el) return;
+    const s = W.state(el, ['team_seasons', 'teams']); if (!s) return;
+    const order = [...s.teams].sort((a, b) => b.injuries - a.injuries).map((r) => r.team_code);
+    const names = new Map(s.teams.map((r) => [r.team_code, r.team_name]));
+    const seasons = [...new Set(s.team_seasons.map((r) => r.season_label))].sort();
+    el.replaceChildren();
+    const w0 = el.clientWidth;
+    const tmp = d3.select(el).append('svg'); const lm = W.textWidth(tmp, order) + 12; tmp.remove();
+    const cw = Math.max(46, (w0 - lm) / seasons.length), ch = 24, top = 22;
+    const w = lm + cw * seasons.length, h = top + ch * order.length;
+    const svg = d3.select(el).append('svg').attr('width', Math.max(w, w0)).attr('viewBox', `0 0 ${Math.max(w, w0)} ${h}`).attr('height', h);
+    const max = d3.max(s.team_seasons, (r) => r.injuries);
+    const hi = W.color(dash.colors[0]), lo = W.color('var(--color-panel)');
+    const col = (v) => d3.interpolateRgb(lo, hi)(Math.min(1, v / max) * .9);
+    seasons.forEach((sl, i) => svg.append('text').attr('class', 'axis-label').attr('x', lm + cw * i + cw / 2).attr('y', 12).attr('text-anchor', 'middle').text(sl.slice(2)));
+    order.forEach((tc, j) => svg.append('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', top + ch * j + ch / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text(tc));
+    const cells = svg.append('g').selectAll('g').data(s.team_seasons).join('g').attr('transform', (r) => `translate(${lm + cw * seasons.indexOf(r.season_label)},${top + ch * order.indexOf(r.team_code)})`);
+    cells.append('rect').attr('x', 1).attr('y', 1).attr('width', cw - 2).attr('height', ch - 2).attr('rx', 3).attr('fill', (r) => col(r.injuries));
+    cells.append('text').attr('x', cw / 2).attr('y', ch / 2).attr('dy', '.35em').attr('text-anchor', 'middle').style('font-size', 'var(--cds-font-size-caption)').style('fill', 'var(--color-fg)').style('font-variant-numeric', 'tabular-nums').text((r) => f0(r.injuries));
+    cells.append('rect').attr('width', cw).attr('height', ch).attr('fill', 'transparent')
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', `${names.get(r.team_code)} · ${r.season_label}`], ['', `${f0(r.injuries)} injuries · ${f0(r.severe)} severe`], ['', `${f0(r.games_missed)} games missed`]])).on('mouseleave', W.tipHide);
+  }
+  function playersTable() {
+    const t = document.getElementById('tbl-players'); if (!t) return;
+    const P = W.get('players'), U = W.get('player_units'); if (!P || !U) return;
+    const units = new Map(U.map((u) => [u.pkey, u]));
+    let rows = P.filter((r) => !plq || `${r.player} ${r.team || ''}`.toLowerCase().includes(plq));
+    rows = rows.sort((a, b) => { const x = a[sortK], y = b[sortK]; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * sortDir; }).slice(0, 300);
+    t.querySelectorAll('thead th').forEach((th) => { const b = th.querySelector('button.sort'); th.setAttribute('aria-sort', b && b.dataset.k === sortK ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'); });
+    const tb = t.querySelector('tbody'); tb.replaceChildren();
+    const num = (v, f) => v == null ? '—' : f(v);
+    for (const r of rows) {
+      const u = units.get(r.pkey) || {};
+      const tr = W.mk('tr', { 'data-key': r.pkey, 'data-name': r.player });
+      tr.append(W.mk('td', {}, r.player), W.mk('td', { class: 'hide-n' }, r.team || ''), W.mk('td', { class: 'hide-n' }, r.archetype || ''),
+        W.mk('td', { class: 'r hide-n' }, u.height_ft_in || '—'), W.mk('td', { class: 'r hide-n' }, num(r.height_cm, d3.format('.0f'))),
+        W.mk('td', { class: 'r hide-n' }, num(u.weight_lb, f0)), W.mk('td', { class: 'r hide-n' }, num(r.weight_kg, d3.format('.0f'))),
+        W.mk('td', { class: 'r' }, f0(r.injuries)), W.mk('td', { class: 'r' }, f0(r.severe)), W.mk('td', { class: 'r' }, f0(r.games_missed)),
+        W.mk('td', { class: 'r' }, num(r.per_1k_min, f2)), W.mk('td', { class: 'hide-n' }, r.top_region || ''));
+      tb.appendChild(tr);
+    }
+  }
+  W.draw.teams = () => { teamRate(); teamDetail(); teamSeason(); playersTable(); };
+})();
+</script>
+
+<script>
+// ===== Court & play context
+(() => {
+  const W = window.NI, f0 = d3.format(','), f2 = d3.format('.2f'), pct = d3.format('.0%'), pct1 = d3.format('.1%');
+  let rpRegion = 'Ankle';
+  W.init.court = () => {
+    document.getElementById('rp-chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { rpRegion = b.dataset.v; W.render(); } });
+  };
+  function tiles() {
+    document.querySelectorAll('#court [data-source="court_meta"], #court [data-source="play_context"]').forEach((el) => {
+      const d = dash.data(el.dataset.source); if (d.status !== 'ok') return;
+      el.classList.remove('dash-skeleton');
+      const row = el.dataset.row != null ? d.data[+el.dataset.row] : d.data.find((r) => r.context === 'Transition');
+      const v = row[el.dataset.field];
+      el.textContent = el.dataset.source === 'play_context' ? pct1(v) : f0(v);
+    });
+  }
+  const GROUP = (r) => r === 'Ankle' || r === 'Foot' ? 'Ankle / foot' : r === 'Knee' ? 'Knee' : (r === 'Achilles' || r === 'Calf / Shin' || r === 'Hamstring' || r === 'Quad / Thigh') ? 'Leg muscles / Achilles' : 'Upper body, back & other';
+  const GROUPS = ['Ankle / foot', 'Knee', 'Leg muscles / Achilles', 'Upper body, back & other'];
+  function court() {
+    const el = document.getElementById('ch-court'); if (!el) return;
+    const s = W.state(el, ['court_points']); if (!s) return;
+    const colors = [dash.colors[0], dash.colors[1], dash.colors[2], 'var(--cds-chart-muted)'];
+    W.legend(document.getElementById('lg-court'), GROUPS.map((g, i) => [colors[i], g]));
+    el.replaceChildren();
+    const w = Math.min(el.clientWidth, 560), h = w * 470 / 500;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h).style('max-width', '560px');
+    // court in NBA tenths-of-feet coordinates: x -250..250, y -52.5 (baseline) .. 417.5 (half-court line)
+    const x = d3.scaleLinear([-250, 250], [0, w]), y = d3.scaleLinear([-52.5, 417.5], [0, h]);
+    const k = w / 500;
+    const g = svg.append('g').attr('fill', 'none').attr('stroke', 'var(--cds-chart-axis)').attr('stroke-width', 1.25);
+    g.append('rect').attr('x', x(-250)).attr('y', y(-52.5)).attr('width', w).attr('height', h);
+    g.append('rect').attr('x', x(-80)).attr('y', y(-52.5)).attr('width', x(80) - x(-80)).attr('height', y(137.5) - y(-52.5));
+    g.append('circle').attr('cx', x(0)).attr('cy', y(137.5)).attr('r', 60 * k);
+    g.append('circle').attr('cx', x(0)).attr('cy', y(0)).attr('r', 7.5 * k);
+    g.append('line').attr('x1', x(-30)).attr('x2', x(30)).attr('y1', y(-7.5)).attr('y2', y(-7.5));
+    g.append('path').attr('d', d3.arc()({ innerRadius: 40 * k, outerRadius: 40 * k, startAngle: Math.PI / 2, endAngle: Math.PI * 1.5 })).attr('transform', `translate(${x(0)},${y(0)})`);
+    const a3 = Math.asin(220 / 237.5);
+    g.append('line').attr('x1', x(-220)).attr('x2', x(-220)).attr('y1', y(-52.5)).attr('y2', y(237.5 * Math.cos(a3)));
+    g.append('line').attr('x1', x(220)).attr('x2', x(220)).attr('y1', y(-52.5)).attr('y2', y(237.5 * Math.cos(a3)));
+    g.append('path').attr('d', d3.arc()({ innerRadius: 237.5 * k, outerRadius: 237.5 * k, startAngle: -a3, endAngle: a3 })).attr('transform', `translate(${x(0)},${y(0)}) rotate(180)`);
+    g.append('path').attr('d', d3.arc()({ innerRadius: 60 * k, outerRadius: 60 * k, startAngle: -Math.PI / 2, endAngle: Math.PI / 2 })).attr('transform', `translate(${x(0)},${y(417.5)})`);
+    // x is mirrored so the view matches a broadcast camera looking at the basket
+    svg.append('g').selectAll('circle').data(s.court_points).join('circle')
+      .attr('cx', (r) => x(-r.x)).attr('cy', (r) => y(Math.min(r.y, 417))).attr('r', 5)
+      .attr('fill', (r) => colors[GROUPS.indexOf(GROUP(r.region))]).attr('fill-opacity', .85).attr('stroke', 'var(--color-panel)').attr('stroke-width', 1.5)
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', `${r.player} · ${r.start}`], ['', `${r.desc} (${r.region})`], ['', `${r.play}`], ['', `${r.cat} · ${r.context} · ${r.zone}`]])).on('mouseleave', W.tipHide)
+      .style('cursor', 'pointer').on('click', (e, r) => W.explore({ q: r.player.toLowerCase() }));
+  }
+  function pairBars(el, rows, key, legendEl) {
+    el.replaceChildren();
+    const c = dash.colors[1];
+    W.legend(legendEl, [[c, 'At injury'], ['var(--cds-chart-muted)', 'Normal']]);
+    const w = el.clientWidth, rh = 38, h = rows.length * rh + 26;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r[key])) + 12;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => Math.max(r.injury_share, r.baseline_share)) * 1.12], [lm, w - 60]).nice();
+    const y = d3.scaleBand(rows.map((r) => r[key]), [0, h - 26]).padding(.2);
+    svg.append('g').attr('transform', `translate(0,${h - 26})`).call(d3.axisBottom(x).ticks(4).tickFormat(pct).tickSize(-(h - 26))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r[key])})`);
+    const bh = (y.bandwidth() - 2) / 2;
+    g.append('rect').attr('x', lm).attr('height', bh).attr('width', (r) => x(r.injury_share) - lm).attr('rx', 3).attr('fill', c);
+    g.append('rect').attr('x', lm).attr('y', bh + 2).attr('height', bh).attr('width', (r) => x(r.baseline_share) - lm).attr('rx', 3).attr('fill', 'var(--cds-chart-muted)');
+    g.append('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r[key]);
+    g.append('text').attr('class', 'axis-label').attr('x', (r) => x(Math.max(r.injury_share, r.baseline_share)) + 6).attr('y', y.bandwidth() / 2).attr('dy', '.35em').text((r) => '×' + f2(r.ratio));
+    g.append('rect').attr('width', w).attr('height', y.bandwidth()).attr('fill', 'transparent')
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', r[key]], ['', `At injury: ${pct1(r.injury_share)} (${f0(r.n)} injuries)`], ['', `Normal: ${pct1(r.baseline_share)}`], ['', `Ratio: ×${f2(r.ratio)}`]])).on('mouseleave', W.tipHide);
+  }
+  function zones() {
+    const el = document.getElementById('ch-zones'); if (!el) return;
+    const s = W.state(el, ['court_zones']); if (!s) return;
+    const order = ['Restricted area', 'Paint (non-RA)', 'Mid-range', 'Corner three', 'Above-the-break three', 'Backcourt'];
+    pairBars(el, [...s.court_zones].sort((a, b) => order.indexOf(a.zone) - order.indexOf(b.zone)), 'zone', document.getElementById('lg-zones'));
+  }
+  function plays() {
+    const el = document.getElementById('ch-plays'); if (!el) return;
+    const s = W.state(el, ['play_types']); if (!s) return;
+    const rows = [...s.play_types].sort((a, b) => b.ratio - a.ratio);
+    el.replaceChildren();
+    const w = el.clientWidth, rh = 30, h = rows.length * rh + 28;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.play)) + 12;
+    const lab = (r) => `×${f2(r.ratio)} · n=${f0(r.n)}`;
+    const rm = W.textWidth(svg, rows.map(lab)) + 10;
+    const x = d3.scaleLinear([0, Math.max(2, d3.max(rows, (r) => r.ratio) * 1.05)], [lm, w - rm]);
+    const y = d3.scaleBand(rows.map((r) => r.play), [0, h - 28]).padding(.25);
+    svg.append('g').attr('transform', `translate(0,${h - 28})`).call(d3.axisBottom(x).ticks(4).tickFormat((d) => '×' + d).tickSize(-(h - 28))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r.play)})`);
+    g.append('rect').attr('x', lm).attr('height', y.bandwidth()).attr('width', (r) => x(r.ratio) - lm).attr('rx', 4)
+      .attr('fill', (r) => r.ratio > 1 ? dash.colors[1] : 'var(--cds-chart-muted)').attr('fill-opacity', (r) => r.n < 20 ? .4 : 1);
+    g.append('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.play);
+    g.append('text').attr('class', 'axis-label').attr('x', (r) => x(r.ratio) + 6).attr('y', y.bandwidth() / 2).attr('dy', '.35em').text(lab);
+    g.append('rect').attr('width', w).attr('height', y.bandwidth()).attr('fill', 'transparent')
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', `${r.play} (${r.group})`], ['', `Last play before ${pct1(r.injury_share)} of injuries (${f0(r.n)})`], ['', `Share of all actions: ${pct1(r.baseline_share)}`], ['', `Ratio: ×${f2(r.ratio)}`]])).on('mouseleave', W.tipHide);
+    svg.append('line').attr('x1', x(1)).attr('x2', x(1)).attr('y1', 0).attr('y2', h - 28).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+  }
+  function trans() {
+    const el = document.getElementById('ch-trans'); if (!el) return;
+    const s = W.state(el, ['play_types']); if (!s) return;
+    const rows = s.play_types.filter((r) => r.n >= 10).sort((a, b) => (b.transition_share - b.baseline_transition_share) - (a.transition_share - a.baseline_transition_share));
+    const c = dash.colors[1];
+    W.legend(document.getElementById('lg-trans'), [['var(--cds-chart-muted)', 'Normal'], [c, 'At injury']]);
+    el.replaceChildren();
+    const w = el.clientWidth, rh = 28, h = rows.length * rh + 26;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.play)) + 12;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => Math.max(r.transition_share, r.baseline_transition_share)) * 1.1], [lm, w - 40]).nice();
+    const y = d3.scaleBand(rows.map((r) => r.play), [0, h - 26]);
+    svg.append('g').attr('transform', `translate(0,${h - 26})`).call(d3.axisBottom(x).ticks(4).tickFormat(pct).tickSize(-(h - 26))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r.play) + y.bandwidth() / 2})`);
+    g.append('line').attr('x1', (r) => x(r.baseline_transition_share)).attr('x2', (r) => x(r.transition_share)).attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2);
+    g.append('circle').attr('cx', (r) => x(r.baseline_transition_share)).attr('r', 5).attr('fill', 'var(--cds-chart-muted)').attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    g.append('circle').attr('cx', (r) => x(r.transition_share)).attr('r', 6).attr('fill', c).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    g.append('text').attr('class', 'axis-label').attr('x', lm - 10).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.play);
+    g.append('rect').attr('x', lm).attr('y', -rh / 2).attr('width', w - lm).attr('height', rh).attr('fill', 'transparent')
+      .on('mousemove', (e, r) => W.tipShow(e, [['t', r.play], ['', `In transition at injury: ${pct(r.transition_share)} (n=${f0(r.n)})`], ['', `In transition normally: ${pct(r.baseline_transition_share)}`]])).on('mouseleave', W.tipHide);
+  }
+  function regionPlays() {
+    const el = document.getElementById('ch-region-plays'); if (!el) return;
+    const s = W.state(el, ['region_plays']); if (!s) return;
+    const regs = [...new Set(s.region_plays.filter((r) => r.region_n >= 40).map((r) => r.region))].sort((a, b) => d3.max(s.region_plays.filter((r) => r.region === b), (r) => r.region_n) - d3.max(s.region_plays.filter((r) => r.region === a), (r) => r.region_n));
+    if (!regs.includes(rpRegion)) rpRegion = regs[0];
+    const chips = document.getElementById('rp-chips'); chips.replaceChildren();
+    for (const v of regs) chips.appendChild(W.mk('button', { 'data-v': v, 'aria-pressed': v === rpRegion ? 'true' : 'false' }, v));
+    const rows = s.region_plays.filter((r) => r.region === rpRegion).sort((a, b) => b.share - a.share).slice(0, 8);
+    el.replaceChildren();
+    const w = el.clientWidth, rh = 28, h = rows.length * rh + 26;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('height', h);
+    const lm = W.textWidth(svg, rows.map((r) => r.cat)) + 12;
+    const x = d3.scaleLinear([0, d3.max(rows, (r) => r.share) * 1.15], [lm, w - 70]).nice();
+    const y = d3.scaleBand(rows.map((r) => r.cat), [0, h - 26]).padding(.25);
+    svg.append('g').attr('transform', `translate(0,${h - 26})`).call(d3.axisBottom(x).ticks(4).tickFormat(pct).tickSize(-(h - 26))).call(W.axisClean).call((g) => g.select('.domain').remove());
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r) => `translate(0,${y(r.cat)})`);
+    g.append('rect').attr('x', lm).attr('height', y.bandwidth()).attr('width', (r) => x(r.share) - lm).attr('rx', 4).attr('fill', dash.colors[0]);
+    g.append('text').attr('class', 'axis-label').attr('x', lm - 8).attr('y', y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text((r) => r.cat);
+    g.append('text').attr('class', 'axis-label').attr('x', (r) => x(r.share) + 6).attr('y', y.bandwidth() / 2).attr('dy', '.35em').text((r) => `${pct(r.share)} · ${f0(r.n)}`);
+  }
+  W.draw.court = () => { tiles(); court(); zones(); plays(); trans(); regionPlays(); };
+})();
+</script>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,95 @@
+/* Design tokens used by the dashboard page (light + dark). */
+:root {
+  color-scheme: light dark;
+
+  --color-bg: #faf9f5;
+  --color-panel: #ffffff;
+  --color-fg: #1f1e1d;
+  --color-fg-muted: #6b6a68;
+  --color-border-line: #e6e3dc;
+  --color-ok: #2f7d4f;
+  --color-warn: #b7791f;
+  --color-bad: #b3402f;
+
+  --series-1: #2f6db5;
+  --series-2: #d9822b;
+  --series-3: #3f9a68;
+  --series-4: #a05299;
+  --series-5: #c4503a;
+  --series-6: #2f9aa8;
+  --series-7: #8a7a2e;
+  --series-8: #6f7680;
+
+  --cds-chart-muted: #cdc9be;
+  --cds-chart-axis: #a8a498;
+  --cds-chart-grid: #e8e5de;
+  --cds-chart-reference: #8a867c;
+
+  --cds-surface-popover: #ffffff;
+  --cds-border: #d8d4ca;
+  --cds-shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.14);
+  --cds-text-secondary: #6b6a68;
+
+  --cds-font-size-caption: 12px;
+  --cds-font-size-body: 14px;
+  --cds-font-size-heading: 17px;
+  --cds-font-size-title: 26px;
+  --cds-font-weight-medium: 500;
+  --cds-radius: 10px;
+  --cds-gap-xs: 4px;
+  --cds-gap-sm: 8px;
+  --cds-gap-md: 14px;
+  --cds-gap-lg: 20px;
+  --cds-pad-xs: 4px;
+  --cds-pad-sm: 8px;
+  --cds-pad-md: 12px;
+  --cds-pad-lg: 18px;
+  --cds-dur-slow: 300ms;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1c1b19;
+    --color-panel: #262523;
+    --color-fg: #efede6;
+    --color-fg-muted: #a3a097;
+    --color-border-line: #3a3935;
+    --color-ok: #5fbf84;
+    --color-warn: #e0a84a;
+    --color-bad: #e07a66;
+
+    --series-1: #6fa3e8;
+    --series-2: #f0a05a;
+    --series-3: #6cc592;
+    --series-4: #cf86c7;
+    --series-5: #ee8670;
+    --series-6: #62c3d1;
+    --series-7: #c9b75a;
+    --series-8: #a0a7b0;
+
+    --cds-chart-muted: #4a4844;
+    --cds-chart-axis: #6e6b63;
+    --cds-chart-grid: #34332f;
+    --cds-chart-reference: #8e8a80;
+
+    --cds-surface-popover: #2f2e2b;
+    --cds-border: #45433e;
+    --cds-shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --cds-text-secondary: #a3a097;
+  }
+}
+
+html, body { margin: 0; }
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: var(--cds-font-size-body);
+}
+#dash-root { padding: 24px var(--dash-gutter, 16px) 48px; }
+
+/* placeholder shown until a number or chart has its data */
+.dash-skeleton { opacity: 0.45; }
