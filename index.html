@@ -90,6 +90,14 @@
   <header id="top">
     <h1>NBA Injury Intelligence</h1>
     <p class="lede" id="takeaway">Across <span data-source="headline" data-field="new_injuries" data-row="0" class="num dash-skeleton">—</span> new injuries to <span data-source="headline" data-field="players" data-row="0" class="num dash-skeleton">—</span> players (<span data-source="headline" data-field="seasons" data-row="0" class="dash-skeleton">—</span>), knees and ankles dominate. Risk differs by player archetype, and a body region injured once is far more likely to be injured again within a year. Use the playbook to act on it.</p>
+    <div class="gs" id="gs-wrap">
+      <div class="gs-box">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="search" id="gs-q" role="combobox" aria-expanded="false" aria-controls="gs-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Search players, teams, injuries, body regions, case studies" aria-label="Search the dashboard">
+        <kbd aria-hidden="true">/</kbd>
+      </div>
+      <div class="gs-list" id="gs-list" role="listbox" aria-label="Search results" hidden></div>
+    </div>
     <div class="ni-tiles">
       <div class="ni-tile"><span class="v dash-skeleton" data-source="headline" data-field="new_injuries" data-row="0">—</span><span class="cap">New injury episodes</span></div>
       <div class="ni-tile"><span class="v dash-skeleton" data-source="headline" data-field="severe" data-row="0">—</span><span class="cap">Severe (out 4+ weeks)</span></div>
@@ -1024,7 +1032,7 @@
     fillSelect(document.getElementById('ex-sev'), 'All severities', ['Severe (>4 wks)', 'Moderate (1-4 wks)', 'Minor (≤1 wk)', 'Unknown'], st.sev);
     fillSelect(document.getElementById('ex-team'), 'All teams', [...new Set(rows.map((r) => r.team_name).filter(Boolean))].sort(), st.team);
     const m = rows.filter((r) => (!st.region || r.region === st.region) && (!st.arch || r.archetype === st.arch) && (!st.sev || r.severity === st.sev) && (!st.team || r.team_name === st.team) &&
-      (!st.q || `${r.player} ${r.team_name || r.team} ${r.desc}`.toLowerCase().includes(st.q))).sort((a, b) => (a.start < b.start ? 1 : -1));
+      (!st.q || st.q.split(/\s+/).every((w) => `${r.player} ${r.team_name || r.team} ${r.desc}`.toLowerCase().includes(w)))).sort((a, b) => (a.start < b.start ? 1 : -1));
     cnt.textContent = m.length > LIMIT ? `${f0(m.length)} injuries match, showing the most recent ${f0(LIMIT)}. Narrow with search or filters.` : `${f0(m.length)} injuries match.`;
     tb.replaceChildren();
     for (const r of m.slice(0, LIMIT)) {
@@ -1318,5 +1326,6 @@
 </script>
 
 </div>
+<script src="search.js"></script>
 </body>
 </html>

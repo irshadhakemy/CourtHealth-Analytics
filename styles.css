@@ -93,3 +93,26 @@ body {
 
 /* placeholder shown until a number or chart has its data */
 .dash-skeleton { opacity: 0.45; }
+
+/* ---- site-wide search ---- */
+.ni .gs { position: relative; max-width: 640px; margin: var(--cds-gap-md) 0 var(--cds-gap-sm); }
+.ni .gs-box { position: relative; }
+.ni .gs-box svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; stroke: var(--color-fg-muted); fill: none; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.ni .gs input { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--cds-font-size-body); padding: 12px 44px 12px 42px; border-radius: 999px; border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); }
+.ni .gs input::placeholder { color: var(--color-fg-muted); }
+.ni .gs input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; border-color: transparent; }
+.ni .gs kbd { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: inherit; font-size: 12px; line-height: 1; padding: 3px 7px; border-radius: 5px; border: 1px solid var(--color-border-line); color: var(--color-fg-muted); pointer-events: none; }
+.ni .gs input:focus ~ kbd, .ni .gs input:not(:placeholder-shown) ~ kbd { display: none; }
+.ni .gs-list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px); max-height: min(70vh, 520px); overflow-y: auto; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: 6px; }
+.ni .gs-list[hidden] { display: none; }
+.ni .gs-head { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--color-fg-muted); padding: 10px 10px 4px; }
+.ni .gs-item { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.ni .gs-item.is-active { background: color-mix(in srgb, var(--series-1) 16%, transparent); }
+.ni .gs-title { font-weight: var(--cds-font-weight-medium); }
+.ni .gs-title mark { background: color-mix(in srgb, var(--series-2) 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.ni .gs-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.ni .gs-more { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); padding: 2px 10px 6px; }
+.ni .gs-flash { animation: gs-flash 1.8s ease-out; }
+@keyframes gs-flash { 0%, 40% { box-shadow: 0 0 0 3px var(--series-2); } 100% { box-shadow: 0 0 0 3px transparent; } }
+@media (hover: none) { .ni .gs kbd { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ni .gs-flash { animation: none; } }
